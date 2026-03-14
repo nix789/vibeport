@@ -59,14 +59,14 @@ export function NodeInit({ onComplete }) {
 
   if (phase === 'idle') {
     return (
-      <div className="border border-[#2a2a4a] p-8 text-left">
-        <p className="text-gray-500 text-sm mb-6">
+      <div className="border border-[#1a3a1a] p-8 text-left">
+        <p className="text-gray-400 text-sm mb-6">
           No email. No password. No cloud. Your Port is generated locally
           and never transmitted. Click below to begin.
         </p>
         <button
           onClick={start}
-          className="w-full bg-[#e94560] hover:bg-[#c73350] text-white py-3 uppercase tracking-widest text-sm transition-colors"
+          className="w-full bg-[#00ff41] hover:bg-[#00cc33] text-white py-3 uppercase tracking-widest text-sm transition-colors"
         >
           Initialize My Port
         </button>
@@ -76,28 +76,28 @@ export function NodeInit({ onComplete }) {
 
   if (phase === 'running') {
     return (
-      <div className="border border-[#2a2a4a] p-8 text-left font-mono text-sm">
-        <p className="text-[#e94560] mb-4 uppercase tracking-widest text-xs">
+      <div className="border border-[#1a3a1a] p-8 text-left font-mono text-sm">
+        <p className="text-[#00ff41] mb-4 uppercase tracking-widest text-xs">
           Vibeport Node Bootstrap
         </p>
         <div className="space-y-2">
           {STEPS.slice(0, stepIdx + 1).map((step, i) => (
             <div key={step.id} className="flex items-start gap-3">
-              <span className={i < stepIdx ? 'text-green-400' : 'text-[#e94560] animate-pulse'}>
+              <span className={i < stepIdx ? 'text-green-400' : 'text-[#00ff41] animate-pulse'}>
                 {i < stepIdx ? '✓' : '▶'}
               </span>
-              <span className={i < stepIdx ? 'text-gray-500' : 'text-gray-200'}>
+              <span className={i < stepIdx ? 'text-gray-400' : 'text-white'}>
                 {step.label}
                 {step.id === 'peers' && i === stepIdx && (
-                  <span className="text-[#7b5ea7] ml-2">{peers} peers found</span>
+                  <span className="text-[#00cc33] ml-2">{peers} peers found</span>
                 )}
               </span>
             </div>
           ))}
         </div>
-        <div className="mt-6 h-1 bg-[#2a2a4a] rounded">
+        <div className="mt-6 h-1 bg-[#1a3a1a] rounded">
           <div
-            className="h-1 bg-[#e94560] transition-all duration-300"
+            className="h-1 bg-[#00ff41] transition-all duration-300"
             style={{ width: `${(stepIdx / (STEPS.length - 1)) * 100}%` }}
           />
         </div>
@@ -107,19 +107,19 @@ export function NodeInit({ onComplete }) {
 
   // Done
   return (
-    <div className="border border-[#e94560]/40 p-8 text-left">
+    <div className="border border-[#00ff41]/40 p-8 text-left">
       <p className="text-green-400 text-xs uppercase tracking-widest mb-4">
         ✓ Port Initialized
       </p>
 
-      <p className="text-gray-400 text-sm mb-4">
+      <p className="text-gray-300 text-sm mb-4">
         Your public node key (share this with people who want to add you):
       </p>
-      <code className="block bg-[#111128] text-[#7b5ea7] text-xs p-3 break-all mb-6">
+      <code className="block bg-[#050f05] text-[#00cc33] text-xs p-3 break-all mb-6">
         {nodeKey ?? 'loading...'}
       </code>
 
-      <label className="block text-xs text-gray-500 mb-2 uppercase tracking-wider">
+      <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
         Choose a handle (you can change this anytime)
       </label>
       <input
@@ -127,12 +127,12 @@ export function NodeInit({ onComplete }) {
         onChange={e => setHandle(e.target.value)}
         maxLength={64}
         placeholder="@yourhandle"
-        className="w-full bg-[#111128] border border-[#2a2a4a] text-gray-200 px-3 py-2 text-sm font-mono mb-4 focus:outline-none focus:border-[#7b5ea7]"
+        className="w-full bg-[#050f05] border border-[#1a3a1a] text-white px-3 py-2 text-sm font-mono mb-4 focus:outline-none focus:border-[#00cc33]"
       />
 
       <button
         onClick={onComplete}
-        className="w-full bg-[#e94560] hover:bg-[#c73350] text-white py-3 uppercase tracking-widest text-sm transition-colors"
+        className="w-full bg-[#00ff41] hover:bg-[#00cc33] text-white py-3 uppercase tracking-widest text-sm transition-colors"
       >
         Enter Vibeport →
       </button>

@@ -1,13 +1,13 @@
-/* Vibeport — retro-web aesthetic, dark base */
+/* Vibeport — black & green */
 :root {
-  --bg:      #0d0d1a;
-  --surface: #1a1a2e;
-  --border:  #2a2a4a;
-  --accent:  #e94560;
-  --accent2: #7b5ea7;
-  --text:    #ddd;
-  --muted:   #888;
-  --code-bg: #111128;
+  --bg:      #000000;
+  --surface: #0a0a0a;
+  --border:  #1a3a1a;
+  --accent:  #00ff41;
+  --accent2: #00cc33;
+  --text:    #ffffff;
+  --muted:   #666;
+  --code-bg: #050f05;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

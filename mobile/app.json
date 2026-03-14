@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Vibeport",
+    "slug": "vibeport",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "net.nixdata.vibeport",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to attach photos to posts.",
+        "NSPhotoLibraryUsageDescription": "Used to attach photos and videos to posts.",
+        "NSMicrophoneUsageDescription": "Used for video recording."
+      }
+    },
+    "android": {
+      "package": "net.nixdata.vibeport",
+      "adaptiveIcon": {
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "relayUrl": "wss://relay.nixdata.net:4444"
+    }
+  }
+}
