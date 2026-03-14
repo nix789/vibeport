@@ -1,0 +1,297 @@
+/* Vibeport — retro-web aesthetic, dark base */
+:root {
+  --bg:      #0d0d1a;
+  --surface: #1a1a2e;
+  --border:  #2a2a4a;
+  --accent:  #e94560;
+  --accent2: #7b5ea7;
+  --text:    #ddd;
+  --muted:   #888;
+  --code-bg: #111128;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.app-header {
+  border-bottom: 2px solid var(--accent);
+  padding: 1.2rem 0 0.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.app-logo {
+  font-size: 2.4rem;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.app-tagline {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.8rem;
+}
+
+.app-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  transition: all 0.1s;
+}
+
+.tab-btn:hover, .tab-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Main ───────────────────────────────────────────────────── */
+.app-main { display: flex; flex-direction: column; gap: 1.5rem; }
+
+section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1.2rem;
+}
+
+h2 {
+  font-size: 1rem;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+h3 { font-size: 0.9rem; color: var(--accent2); margin: 1rem 0 0.5rem; }
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.8rem;
+}
+
+input, textarea {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.6rem;
+  width: 100%;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent2);
+}
+
+.code-input { font-size: 0.8rem; }
+
+.btn-primary {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.45rem 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.4rem;
+}
+
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary:hover:not(:disabled) { background: #c73350; }
+
+.btn-small {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+}
+.btn-small:hover { border-color: var(--accent2); color: var(--accent2); }
+
+.hint  { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.6rem; }
+.status { font-size: 0.8rem; color: var(--accent2); margin-top: 0.4rem; }
+.error  { font-size: 0.8rem; color: var(--accent);  margin-top: 0.4rem; }
+.loading, .empty { color: var(--muted); font-size: 0.85rem; }
+
+/* ── Profile ────────────────────────────────────────────────── */
+.profile-frame {
+  width: 100%;
+  height: 340px;
+  border: 1px solid var(--border);
+  margin-top: 0.6rem;
+  background: #fff;
+}
+
+.node-key {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.6rem;
+  word-break: break-all;
+}
+.node-key code { color: var(--text); }
+
+/* ── Posts ──────────────────────────────────────────────────── */
+.post-composer { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.2rem; }
+
+.composer-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mood-input { flex: 0 0 140px; }
+
+.file-label {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  white-space: nowrap;
+}
+.file-label:hover { border-color: var(--accent2); }
+
+.file-name { font-size: 0.75rem; color: var(--accent2); }
+
+.posts-list { display: flex; flex-direction: column; gap: 0.8rem; }
+
+.post-card {
+  border: 1px solid var(--border);
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.post-content { font-size: 0.9rem; white-space: pre-wrap; }
+.post-mood    { font-size: 0.75rem; color: var(--accent2); font-style: italic; }
+.post-meta    { font-size: 0.7rem; color: var(--muted); }
+.expiry       { color: #c86a3a; }
+
+.post-media {
+  max-width: 100%;
+  max-height: 340px;
+  margin-top: 0.4rem;
+  border: 1px solid var(--border);
+}
+
+/* ── Friends ────────────────────────────────────────────────── */
+.add-friend { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: flex-start; }
+.key-input  { flex: 1; min-width: 200px; }
+
+.friends-list { display: flex; flex-direction: column; gap: 0.8rem; }
+
+.friend-card {
+  border: 1px solid var(--border);
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.friend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.friend-key   { font-size: 0.7rem; color: var(--muted); word-break: break-all; }
+.last-seen    { font-size: 0.72rem; color: var(--muted); }
+
+/* ── Stickers ───────────────────────────────────────────────── */
+.sticker-form { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.2rem; }
+
+.sticker-set {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.sticker-btn {
+  background: var(--code-bg);
+  border: 2px solid var(--border);
+  cursor: pointer;
+  font-size: 1.4rem;
+  padding: 0.3rem 0.5rem;
+  transition: border-color 0.1s;
+}
+.sticker-btn.selected { border-color: var(--accent); }
+.sticker-btn:hover    { border-color: var(--accent2); }
+
+.sticker-history { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.sticker-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+  border-left: 3px solid var(--border);
+}
+.sticker-entry.sent     { border-color: var(--accent2); }
+.sticker-entry.received { border-color: var(--accent); }
+
+.sticker-emoji { font-size: 1.2rem; }
+.sticker-dir   { color: var(--muted); font-size: 0.7rem; }
+.sticker-peer  { color: var(--muted); font-size: 0.7rem; }
+.sticker-msg   { color: var(--text); font-style: italic; }
+
+/* ── Webrings ───────────────────────────────────────────────── */
+.webring-form { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+
+.webring-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.webring-card {
+  border: 1px solid var(--border);
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.webring-card code  { font-size: 0.72rem; color: var(--muted); }
+.webring-card .joined { font-size: 0.7rem; color: var(--muted); }
+
+/* ── Footer ─────────────────────────────────────────────────── */
+.app-footer {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 2rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.8rem;
+}

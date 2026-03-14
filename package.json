@@ -1,0 +1,16 @@
+{
+  "name": "vibeport",
+  "version": "0.1.0",
+  "description": "Local-first P2P social network",
+  "private": true,
+  "scripts": {
+    "install:all": "cd node && npm install && cd ../frontend && npm install",
+    "node": "cd node && npm start",
+    "node:dev": "cd node && npm run dev",
+    "frontend": "cd frontend && npm run dev",
+    "dev": "concurrently -n node,ui -c cyan,magenta \"npm run node:dev\" \"npm run frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

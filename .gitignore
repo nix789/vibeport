@@ -1,0 +1,10 @@
+node_modules/
+data/
+dist/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+frontend/.env
+relay/data/

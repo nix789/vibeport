@@ -1,0 +1,18 @@
+{
+  "name": "vibeport-relay",
+  "version": "0.1.0",
+  "description": "Vibeport hybrid relay — always-on WebSocket event cache for the P2P network",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start":  "node src/index.js",
+    "dev":    "node --watch src/index.js",
+    "pm2":    "pm2 start src/index.js --name vibeport-relay --interpreter node"
+  },
+  "dependencies": {
+    "ws":             "^8.18.0",
+    "better-sqlite3": "^11.10.0",
+    "sodium-native":  "^5.1.0",
+    "b4a":            "^1.6.7"
+  }
+}
