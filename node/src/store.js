@@ -78,6 +78,7 @@ function migrate(db) {
       address     TEXT    PRIMARY KEY,
       handle      TEXT,
       bio         TEXT,
+      avatar      TEXT,
       song_url    TEXT,
       custom_css  TEXT,
       custom_html TEXT,
@@ -111,4 +112,7 @@ function migrate(db) {
       added_at   INTEGER NOT NULL DEFAULT (unixepoch())
     );
   `)
+
+  // Incremental migrations (safe to run repeatedly)
+  try { db.exec(`ALTER TABLE friend_profiles ADD COLUMN avatar TEXT`) } catch {}
 }

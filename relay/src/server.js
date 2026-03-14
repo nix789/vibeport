@@ -30,12 +30,39 @@ import { unpackEvent, HEADER_BYTES } from './verify.js'
 // feedKey → Set<WebSocket>
 const subscriptions = new Map()
 
-// ── Spaces (WebRTC signaling) ─────────────────────────────────────────────────
-// spaceId → { host: WebSocket, hostKey, title, listeners: Map<peerKey, WebSocket> }
+// ── Vibes / Spaces (WebRTC signaling) ────────────────────────────────────────
+// spaceId → {
+//   id, hostKey, coHostKey, title,
+//   host:      WebSocket,
+//   speakers:  Map<peerKey, WebSocket>,   // co-host + speakers (excl. host)
+//   listeners: Map<peerKey, WebSocket>,
+// }
 const spaces = new Map()
+const MAX_STAGE = 10   // host + speakers combined
 
 function spaceSend(ws, obj) {
   if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj))
+}
+
+// Find the WebSocket for any participant in a space
+function findWS(space, peerKey) {
+  if (space.hostKey === peerKey) return space.host
+  return space.speakers.get(peerKey) ?? space.listeners.get(peerKey)
+}
+
+// All stage keys (host + speakers)
+function stageKeys(space) {
+  return [space.hostKey, ...space.speakers.keys()]
+}
+
+function broadcastToStage(space, obj) {
+  spaceSend(space.host, obj)
+  for (const ws of space.speakers.values()) spaceSend(ws, obj)
+}
+
+function broadcastToAll(space, obj) {
+  broadcastToStage(space, obj)
+  for (const ws of space.listeners.values()) spaceSend(ws, obj)
 }
 
 function broadcastSpaceList() {
@@ -46,7 +73,6 @@ function broadcastSpaceList() {
     listeners: s.listeners.size,
     live:      true,
   }))
-  // Broadcast to everyone subscribed to the magic 'spaces' feed key
   const subs = subscriptions.get('spaces') ?? new Set()
   for (const ws of subs) spaceSend(ws, { type: 'SPACES_LIST', spaces: list })
 }
@@ -171,13 +197,19 @@ export function startServer(port, rateLimitPerMin = 300) {
           break
         }
 
-        // ── Spaces signaling ───────────────────────────────────────────────
+        // ── Vibes / Spaces signaling ───────────────────────────────────────
 
         case 'SPACE_CREATE': {
-          const { hostKey, title = 'Untitled Space' } = msg
+          const { hostKey, title = 'Untitled Vibe' } = msg
           if (!hostKey) { send({ type: 'ERROR', message: 'hostKey required' }); break }
-          const id = hostKey   // space ID == host's pubkey, one space per host
-          spaces.set(id, { id, hostKey, title: title.slice(0, 80), host: ws, listeners: new Map() })
+          const id = hostKey   // one vibe per host
+          spaces.set(id, {
+            id, hostKey, coHostKey: null,
+            title: title.slice(0, 80),
+            host: ws,
+            speakers:  new Map(),
+            listeners: new Map(),
+          })
           send({ type: 'SPACE_CREATED', id })
           broadcastSpaceList()
           break
@@ -186,7 +218,7 @@ export function startServer(port, rateLimitPerMin = 300) {
         case 'SPACE_END': {
           const space = spaces.get(msg.id)
           if (space && space.host === ws) {
-            for (const lws of space.listeners.values()) spaceSend(lws, { type: 'SPACE_ENDED', id: msg.id })
+            broadcastToAll(space, { type: 'SPACE_ENDED', id: msg.id })
             spaces.delete(msg.id)
             broadcastSpaceList()
           }
@@ -198,9 +230,13 @@ export function startServer(port, rateLimitPerMin = 300) {
           if (!space) { send({ type: 'ERROR', message: 'Space not found' }); break }
           const { peerKey } = msg
           space.listeners.set(peerKey, ws)
-          // Notify host so it can send WebRTC offer
-          spaceSend(space.host, { type: 'SPACE_PEER_JOINED', id: msg.id, peerKey })
-          send({ type: 'SPACE_JOINED', id: msg.id, hostKey: space.hostKey, title: space.title })
+          // Notify ALL stage members so each can send a WebRTC offer
+          broadcastToStage(space, { type: 'SPACE_PEER_JOINED', id: msg.id, peerKey })
+          send({
+            type: 'SPACE_JOINED', id: msg.id,
+            hostKey: space.hostKey, coHostKey: space.coHostKey,
+            title: space.title, stage: stageKeys(space),
+          })
           broadcastSpaceList()
           break
         }
@@ -209,42 +245,88 @@ export function startServer(port, rateLimitPerMin = 300) {
           const space = spaces.get(msg.id)
           if (space) {
             space.listeners.delete(msg.peerKey)
-            spaceSend(space.host, { type: 'SPACE_PEER_LEFT', id: msg.id, peerKey: msg.peerKey })
+            broadcastToStage(space, { type: 'SPACE_PEER_LEFT', id: msg.id, peerKey: msg.peerKey })
             broadcastSpaceList()
           }
           break
         }
 
-        // WebRTC signaling — relay forwards offer/answer/ICE between host and listener
-        case 'SPACE_OFFER': {
-          // Host → relay → specific listener
+        case 'SPACE_REQUEST_SPEAK': {
+          // Listener raises hand — notify host + co-host
           const space = spaces.get(msg.id)
           if (!space) break
-          const lws = space.listeners.get(msg.to)
-          spaceSend(lws, { type: 'SPACE_OFFER', id: msg.id, sdp: msg.sdp, from: space.hostKey })
+          spaceSend(space.host, { type: 'SPACE_SPEAK_REQUEST', id: msg.id, peerKey: msg.peerKey })
+          if (space.coHostKey) {
+            spaceSend(space.speakers.get(space.coHostKey),
+              { type: 'SPACE_SPEAK_REQUEST', id: msg.id, peerKey: msg.peerKey })
+          }
+          break
+        }
+
+        case 'SPACE_PROMOTE': {
+          // Host or co-host promotes a listener to speaker (or co-host)
+          const space = spaces.get(msg.id)
+          if (!space) break
+          if (msg.fromKey !== space.hostKey && msg.fromKey !== space.coHostKey) break
+          if (stageKeys(space).length >= MAX_STAGE) {
+            send({ type: 'ERROR', message: 'Stage full (max 10)' }); break
+          }
+          const peerWs = space.listeners.get(msg.peerKey)
+          if (!peerWs) break
+          // Move listener → speakers
+          space.listeners.delete(msg.peerKey)
+          space.speakers.set(msg.peerKey, peerWs)
+          if (msg.asCoHost) space.coHostKey = msg.peerKey
+          const role = msg.asCoHost ? 'cohost' : 'speaker'
+          // Tell new speaker their role + who's already on stage + listeners to offer to
+          spaceSend(peerWs, {
+            type: 'SPACE_PROMOTED', id: msg.id, role,
+            stage:     stageKeys(space).filter(k => k !== msg.peerKey),
+            listeners: [...space.listeners.keys()],
+          })
+          // Tell everyone a new speaker joined stage
+          broadcastToAll(space, { type: 'SPACE_SPEAKER_JOINED', id: msg.id, peerKey: msg.peerKey, role })
+          broadcastSpaceList()
+          break
+        }
+
+        case 'SPACE_DEMOTE': {
+          // Host demotes a speaker back to listener
+          const space = spaces.get(msg.id)
+          if (!space || msg.fromKey !== space.hostKey) break
+          const peerWs = space.speakers.get(msg.peerKey)
+          if (!peerWs) break
+          space.speakers.delete(msg.peerKey)
+          space.listeners.set(msg.peerKey, peerWs)
+          if (space.coHostKey === msg.peerKey) space.coHostKey = null
+          spaceSend(peerWs, { type: 'SPACE_DEMOTED', id: msg.id })
+          broadcastToAll(space, { type: 'SPACE_SPEAKER_LEFT', id: msg.id, peerKey: msg.peerKey })
+          broadcastSpaceList()
+          break
+        }
+
+        // WebRTC signaling — relay routes offer/answer/ICE between any two participants
+        case 'SPACE_OFFER': {
+          const space = spaces.get(msg.id)
+          if (!space) break
+          spaceSend(findWS(space, msg.to),
+            { type: 'SPACE_OFFER', id: msg.id, sdp: msg.sdp, from: msg.from })
           break
         }
 
         case 'SPACE_ANSWER': {
-          // Listener → relay → host
           const space = spaces.get(msg.id)
           if (!space) break
-          spaceSend(space.host, { type: 'SPACE_ANSWER', id: msg.id, sdp: msg.sdp, from: msg.from })
+          spaceSend(findWS(space, msg.to),
+            { type: 'SPACE_ANSWER', id: msg.id, sdp: msg.sdp, from: msg.from })
           break
         }
 
         case 'SPACE_ICE': {
-          // Either direction — forward to the right peer
           const space = spaces.get(msg.id)
           if (!space) break
-          if (space.host === ws) {
-            // Host sending ICE to a listener
-            const lws = space.listeners.get(msg.to)
-            spaceSend(lws, { type: 'SPACE_ICE', id: msg.id, candidate: msg.candidate, from: space.hostKey })
-          } else {
-            // Listener sending ICE to host
-            spaceSend(space.host, { type: 'SPACE_ICE', id: msg.id, candidate: msg.candidate, from: msg.from })
-          }
+          spaceSend(findWS(space, msg.to),
+            { type: 'SPACE_ICE', id: msg.id, candidate: msg.candidate, from: msg.from })
           break
         }
 
@@ -267,18 +349,31 @@ export function startServer(port, rateLimitPerMin = 300) {
         subs.delete(ws)
         if (subs.size === 0) subscriptions.delete(key)
       }
-      // Clean up any space this socket was hosting
+      // Clean up any space this socket was part of
       for (const [id, space] of spaces) {
         if (space.host === ws) {
-          for (const lws of space.listeners.values()) spaceSend(lws, { type: 'SPACE_ENDED', id })
+          // Host left — end the whole space
+          broadcastToAll(space, { type: 'SPACE_ENDED', id })
           spaces.delete(id)
           broadcastSpaceList()
         } else {
-          // Clean up as a listener
+          // Check if they were a speaker
+          for (const [peerKey, sws] of space.speakers) {
+            if (sws === ws) {
+              space.speakers.delete(peerKey)
+              if (space.coHostKey === peerKey) space.coHostKey = null
+              broadcastToAll(space, { type: 'SPACE_SPEAKER_LEFT', id, peerKey })
+              broadcastSpaceList()
+              break
+            }
+          }
+          // Check if they were a listener
           for (const [peerKey, lws] of space.listeners) {
             if (lws === ws) {
               space.listeners.delete(peerKey)
-              spaceSend(space.host, { type: 'SPACE_PEER_LEFT', id, peerKey })
+              broadcastToStage(space, { type: 'SPACE_PEER_LEFT', id, peerKey })
+              broadcastSpaceList()
+              break
             }
           }
         }

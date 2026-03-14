@@ -15,6 +15,7 @@ export function LandingPage({ onEnterApp }) {
       <div style={{ position: 'relative', zIndex: 1 }}>
         <Hero onEnterApp={onEnterApp} />
         <ComparisonTable />
+        <DownloadSection />
         <NodeInitSection onEnterApp={onEnterApp} />
         <LandingFooter />
       </div>
@@ -176,6 +177,87 @@ function NodeInitSection({ onEnterApp }) {
           on the network.
         </p>
         <NodeInit onComplete={onEnterApp} />
+      </div>
+    </section>
+  )
+}
+
+/* ── Download ────────────────────────────────────────────────────────────── */
+
+function DownloadSection() {
+  // Detect platform for highlighted option
+  const ua = navigator.userAgent
+  const isMac = /mac/i.test(ua)
+  const isWin = /win/i.test(ua)
+
+  const RELEASES = 'https://github.com/nix789/vibeport/releases/latest'
+
+  const platforms = [
+    {
+      name: 'Windows',
+      icon: '🪟',
+      label: 'Download .exe',
+      sub:   'Windows 10 / 11 · x64',
+      highlight: isWin,
+    },
+    {
+      name: 'macOS',
+      icon: '🍎',
+      label: 'Download .dmg',
+      sub:   'macOS 12+ · Intel & Apple Silicon',
+      highlight: isMac,
+    },
+    {
+      name: 'Linux',
+      icon: '🐧',
+      label: 'Download .AppImage',
+      sub:   'Any distro · x64',
+      highlight: !isMac && !isWin,
+    },
+  ]
+
+  return (
+    <section id="download" className="px-6 py-20 border-b border-[#1a3a1a]">
+      <div className="max-w-4xl mx-auto text-center">
+        <p className="text-[#00ff41] text-xs tracking-[0.3em] uppercase mb-3">
+          Skip the Terminal
+        </p>
+        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          Desktop App
+        </h2>
+        <p className="text-gray-400 mb-10 max-w-xl mx-auto">
+          One click and your node starts automatically.
+          No terminal, no npm, no setup wizard.{' '}
+          <span className="text-gray-600">Requires Node.js 20+.</span>
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {platforms.map(p => (
+            <a
+              key={p.name}
+              href={RELEASES}
+              target="_blank"
+              rel="noreferrer"
+              className="block border transition-colors p-6 text-left"
+              style={{
+                borderColor: p.highlight ? '#00ff41' : '#1a3a1a',
+                background:  p.highlight ? 'rgba(0,255,65,.04)' : 'transparent',
+              }}
+            >
+              <div className="text-3xl mb-3">{p.icon}</div>
+              <div className="text-white font-bold mb-1">{p.name}</div>
+              <div className="text-[#00ff41] text-sm mb-2">{p.label}</div>
+              <div className="text-gray-600 text-xs">{p.sub}</div>
+            </a>
+          ))}
+        </div>
+
+        <p className="text-gray-600 text-xs">
+          Or run manually:{' '}
+          <code className="bg-[#0a0a0a] border border-[#1a3a1a] px-2 py-1 text-[#00ff41]">
+            git clone https://github.com/nix789/vibeport && cd vibeport && npm run dev
+          </code>
+        </p>
       </div>
     </section>
   )

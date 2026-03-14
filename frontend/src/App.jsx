@@ -10,10 +10,10 @@ import { Webrings } from './components/Webrings'
 import { ThemeEngine } from './components/ThemeEngine'
 import { P2PStatus } from './components/P2PStatus'
 import { Discover } from './components/Discover'
-import { Spaces } from './components/Spaces'
+import { Vibes } from './components/Vibes'
 import './App.css'
 
-const TABS = ['Profile', 'Bulletin', 'Friends', 'Stickers', 'Webrings', 'Discover', 'Spaces', 'Theme', 'Node']
+const TABS = ['Profile', 'Bulletin', 'Friends', 'Stickers', 'Webrings', 'Discover', 'Vibes', 'Theme', 'Node']
 
 const LANDING_KEY = 'vibeport_entered'
 
@@ -63,7 +63,7 @@ export default function App() {
         {tab === 'Stickers'  && <Stickers />}
         {tab === 'Webrings'  && <Webrings />}
         {tab === 'Discover'  && <Discover />}
-        {tab === 'Spaces'    && <Spaces />}
+        {tab === 'Vibes'     && <Vibes />}
         {tab === 'Theme'     && <ThemeEngine />}
         {tab === 'Node'      && <P2PStatus />}
       </main>

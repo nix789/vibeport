@@ -55,7 +55,10 @@ export function startAPI() {
     next()
   })
 
-  app.use(cors({ origin: 'http://localhost:5173' }))
+  app.use(cors({
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173',
+             'http://localhost:7331',  'http://127.0.0.1:7331'],
+  }))
   app.use(express.json({ limit: '128kb' }))
   app.use(rateLimit({ windowMs: 60_000, max: 120 }))
 
@@ -290,6 +293,19 @@ export function startAPI() {
   // ── Health ────────────────────────────────────────────────────────────────────
 
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
+
+  // ── Serve frontend in Electron / production mode ──────────────────────────────
+  const DIST = path.resolve(__dirname, '../../frontend/dist')
+  if (fs.existsSync(DIST)) {
+    app.use(express.static(DIST))
+    // SPA fallback — any non-API route returns index.html
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/') ||
+          req.path.startsWith('/media') ||
+          req.path.startsWith('/avatars')) return next()
+      res.sendFile(path.join(DIST, 'index.html'))
+    })
+  }
 
   app.listen(PORT, '127.0.0.1', () => {
     console.log(`[api] Local API running at http://127.0.0.1:${PORT}`)
