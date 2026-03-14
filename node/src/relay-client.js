@@ -19,7 +19,7 @@ const PUBKEY_BYTES = sodium.crypto_sign_PUBLICKEYBYTES
 
 // Default relays — users can add more via the API
 export const DEFAULT_RELAYS = [
-  'wss://relay.vibeport.com:4444',
+  'wss://relay.nixdata.net:4444',
 ]
 
 const activeRelays = new Map()  // url → { ws, backoff, timer }
