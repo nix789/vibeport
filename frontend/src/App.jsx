@@ -12,9 +12,10 @@ import { P2PStatus } from './components/P2PStatus'
 import { Discover } from './components/Discover'
 import { Vibes } from './components/Vibes'
 import { SharePage } from './components/SharePage'
+import { Messages } from './components/Messages'
 import './App.css'
 
-const TABS = ['Profile', 'Bulletin', 'Friends', 'Stickers', 'Webrings', 'Discover', 'Vibes', 'Theme', 'Node']
+const TABS = ['Profile', 'Bulletin', 'Friends', 'Messages', 'Stickers', 'Webrings', 'Discover', 'Vibes', 'Theme', 'Node']
 const LANDING_KEY = 'vibeport_entered'
 const SITE_BASE   = 'https://vibeport.nixdata.net'
 
@@ -71,6 +72,7 @@ export default function App() {
         {tab === 'Friends'   && <Friends />}
         {tab === 'Stickers'  && <Stickers />}
         {tab === 'Webrings'  && <Webrings />}
+        {tab === 'Messages'  && <Messages />}
         {tab === 'Discover'  && <Discover />}
         {tab === 'Vibes'     && <Vibes />}
         {tab === 'Theme'     && <ThemeEngine />}

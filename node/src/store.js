@@ -111,6 +111,16 @@ function migrate(db) {
       enabled    INTEGER NOT NULL DEFAULT 1,
       added_at   INTEGER NOT NULL DEFAULT (unixepoch())
     );
+
+    -- Direct messages (BitChat-style E2E encrypted)
+    CREATE TABLE IF NOT EXISTS messages (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      direction  TEXT    NOT NULL CHECK (direction IN ('sent', 'recv')),
+      peer       TEXT    NOT NULL,   -- their Ed25519 pubkey hex
+      content    TEXT    NOT NULL,   -- decrypted plaintext
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_peer ON messages (peer, created_at);
   `)
 
   // Incremental migrations (safe to run repeatedly)

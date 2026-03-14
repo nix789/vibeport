@@ -13,17 +13,21 @@ const VIDEO_MAX_BYTES = 75 * 1024 * 1024   // 75 MB (before upload; server compr
 const BASE = 'http://127.0.0.1:7331'
 
 export function Feed() {
-  const [posts, setPosts] = useState([])
+  const [posts,   setPosts]   = useState([])
+  const [profile, setProfile] = useState(null)
   const [content, setContent] = useState('')
-  const [mood, setMood] = useState('')
-  const [file, setFile] = useState(null)
+  const [mood,    setMood]    = useState('')
+  const [file,    setFile]    = useState(null)
   const [fileErr, setFileErr] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [status, setStatus] = useState('')
+  const [status,  setStatus]  = useState('')
   const fileRef = useRef()
 
   const load = () => api.getPosts().then(setPosts).catch(console.error)
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    api.getProfile().then(setProfile).catch(() => {})
+  }, [])
 
   const onFileChange = (e) => {
     setFileErr('')
@@ -124,21 +128,43 @@ export function Feed() {
 
       <div className="posts-list">
         {posts.length === 0 && <p className="empty">No posts yet.</p>}
-        {posts.map(p => <PostCard key={p.id} post={p} />)}
+        {posts.map(p => <PostCard key={p.id} post={p} profile={profile} />)}
       </div>
     </section>
   )
 }
 
-function PostCard({ post }) {
+function PostCard({ post, profile }) {
   const expiresAt = post.media_expires_at
     ? new Date(post.media_expires_at * 1000).toLocaleString()
     : null
 
+  const avatarUrl = profile?.avatar ? `${BASE}${profile.avatar}` : null
+
   return (
     <article className="post-card">
-      <p className="post-content">{post.content}</p>
-      {post.mood && <span className="post-mood">feeling: {post.mood}</span>}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', marginBottom: '0.5rem' }}>
+        {/* Avatar icon */}
+        <div style={{
+          width: 36, height: 36, flexShrink: 0,
+          border: '1px solid var(--accent)',
+          background: 'var(--code-bg)',
+          overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {avatarUrl
+            ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <span style={{ fontSize: '1.1rem' }}>👤</span>
+          }
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.2rem' }}>
+            {profile?.handle || 'anon'}
+            {post.mood && <span style={{ color: 'var(--muted)', fontWeight: 'normal', marginLeft: '0.5rem' }}>· feeling: {post.mood}</span>}
+          </p>
+          <p className="post-content" style={{ margin: 0 }}>{post.content}</p>
+        </div>
+      </div>
       {post.media && <MediaAttachment path={post.media} mimeType={post.media_type} />}
       <div className="post-meta">
         <span>{new Date(post.created_at * 1000).toLocaleString()}</span>

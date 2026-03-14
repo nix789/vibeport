@@ -55,4 +55,7 @@ export const api = {
   joinWebring:      (data)   => req('POST',  '/webrings', data),
   getTop100:        ()       => req('GET',   '/discover/top'),
   bumpInteraction:  (addr)   => req('POST',  '/discover/interact', { address: addr }),
+  getConversations: ()       => req('GET',   '/messages'),
+  getThread:        (peer)   => req('GET',   `/messages/${peer}`),
+  sendMessage:      (to, content) => req('POST', '/messages', { to, content }),
 }

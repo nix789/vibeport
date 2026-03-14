@@ -11,6 +11,7 @@
 import { WebSocket } from 'ws'
 import { getDB } from './store.js'
 import sodium from 'sodium-native'
+import { encryptDM, decryptDM } from './dm.js'
 
 const RECONNECT_BASE_MS = 2000
 const RECONNECT_MAX_MS  = 60_000
@@ -72,6 +73,28 @@ export function publishToRelays(seq, bodyObj) {
   }
 }
 
+/** Send an encrypted DM to a peer via the relay */
+export async function sendDM(toPubkeyHex, plaintext) {
+  if (!_identity) throw new Error('Identity not initialized')
+  const encrypted = encryptDM(plaintext, toPubkeyHex, _identity)
+  const msg = {
+    type:       'DM',
+    to:         toPubkeyHex,
+    from:       _identity.publicKey,
+    nonce:      encrypted.nonce,
+    ciphertext: encrypted.ciphertext,
+    sig:        encrypted.sig,
+  }
+  let sent = false
+  for (const [, entry] of activeRelays) {
+    if (entry.ws?.readyState === WebSocket.OPEN) {
+      entry.ws.send(JSON.stringify(msg))
+      sent = true
+    }
+  }
+  if (!sent) throw new Error('No relay connection available')
+}
+
 /** Subscribe to a friend's feed on all relays, from a given seq */
 export function subscribeOnRelays(feedKey, fromSeq = 0) {
   for (const [, entry] of activeRelays) {
@@ -122,6 +145,8 @@ function _connect(url) {
       const msg = JSON.parse(data.toString())
       if (msg.type === 'ERROR') {
         console.warn(`[relay-client] Relay error from ${url}:`, msg.message)
+      } else if (msg.type === 'DM' && _identity) {
+        _handleIncomingDM(msg)
       }
     } catch {}
   })
@@ -150,6 +175,19 @@ function _buildEvent(seq, bodyObj) {
   sodium.crypto_sign_detached(sig, message, Buffer.from(secretKey))
 
   return Buffer.concat([sig, message])
+}
+
+function _handleIncomingDM(msg) {
+  if (!_identity) return
+  // Only process DMs addressed to us
+  if (msg.to !== _identity.publicKey) return
+  const plaintext = decryptDM(msg, _identity)
+  if (!plaintext) return
+
+  const db = getDB()
+  db.prepare(`INSERT INTO messages (direction, peer, content) VALUES ('recv', ?, ?)`)
+    .run(msg.from, plaintext)
+  console.log(`[dm] Message from ${msg.from.slice(0, 16)}…`)
 }
 
 function _handleIncomingEvent(buf) {

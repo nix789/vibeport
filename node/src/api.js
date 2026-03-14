@@ -13,7 +13,7 @@ import { getDB } from './store.js'
 import { appendEvent, addFriend, getLocalCoreKey } from './p2p.js'
 import { sanitizeCSS, sanitizeHTML } from './sanitize.js'
 import { mediaRouter } from './media.js'
-import { connectRelay, disconnectRelay, getRelayStatus } from './relay-client.js'
+import { connectRelay, disconnectRelay, getRelayStatus, sendDM } from './relay-client.js'
 
 import multer from 'multer'
 import fs from 'fs'
@@ -288,6 +288,56 @@ export function startAPI() {
     db.prepare(`UPDATE friends SET interaction_score = interaction_score + ? WHERE address = ?`)
       .run(Math.min(weight, 5), address)
     res.json({ ok: true })
+  })
+
+  // ── Direct Messages ───────────────────────────────────────────────────────────
+
+  // List conversations (unique peers, most recent message first)
+  app.get('/api/messages', (req, res) => {
+    const db = getDB()
+    const convos = db.prepare(`
+      SELECT m.peer, m.content, m.direction, m.created_at,
+             COALESCE(f.handle, '') AS handle
+      FROM messages m
+      LEFT JOIN friends f ON f.address = m.peer
+      WHERE m.id IN (
+        SELECT MAX(id) FROM messages GROUP BY peer
+      )
+      ORDER BY m.created_at DESC
+    `).all()
+    res.json(convos)
+  })
+
+  // Messages with a specific peer
+  app.get('/api/messages/:peer', (req, res) => {
+    const db = getDB()
+    if (!/^[0-9a-f]{64}$/i.test(req.params.peer)) {
+      return res.status(400).json({ error: 'Invalid peer key' })
+    }
+    const msgs = db.prepare(`
+      SELECT * FROM messages WHERE peer = ? ORDER BY created_at ASC LIMIT 200
+    `).all(req.params.peer)
+    res.json(msgs)
+  })
+
+  // Send a DM
+  app.post('/api/messages', async (req, res) => {
+    const db = getDB()
+    const { to, content } = req.body
+    if (!to || !/^[0-9a-f]{64}$/i.test(to)) {
+      return res.status(400).json({ error: 'Invalid recipient key' })
+    }
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'content required' })
+    }
+    const text = content.trim().slice(0, 4000)
+    try {
+      await sendDM(to, text)
+      db.prepare(`INSERT INTO messages (direction, peer, content) VALUES ('sent', ?, ?)`).run(to, text)
+      res.json({ ok: true })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
   })
 
   // ── Health ────────────────────────────────────────────────────────────────────

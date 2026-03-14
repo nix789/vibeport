@@ -338,6 +338,35 @@ export function startServer(port, rateLimitPerMin = 300) {
           break
         }
 
+        // ── Direct Messages (BitChat-style E2E encrypted) ──────────────────
+        case 'DM': {
+          const { to, from, nonce, ciphertext, sig } = msg
+          if (!to || !from || !nonce || !ciphertext || !sig) break
+          if (!/^[0-9a-f]{64}$/i.test(to) || !/^[0-9a-f]{64}$/i.test(from)) break
+
+          // Forward to recipient if online (subscribed to their own feed key)
+          const recipientSubs = subscriptions.get(to.toLowerCase())
+          if (recipientSubs?.size) {
+            const payload = JSON.stringify({ type: 'DM', to, from, nonce, ciphertext, sig })
+            for (const subWs of recipientSubs) {
+              if (subWs !== ws && subWs.readyState === WebSocket.OPEN) subWs.send(payload)
+            }
+          }
+          send({ type: 'DM_OK' })
+          break
+        }
+
+        // ── Peer discovery ─────────────────────────────────────────────────
+        case 'PEER_LIST': {
+          const peers = []
+          for (const [key] of subscriptions) {
+            if (/^[0-9a-f]{64}$/.test(key)) peers.push(key)
+            if (peers.length >= 100) break
+          }
+          send({ type: 'PEER_LIST', peers })
+          break
+        }
+
         default:
           send({ type: 'ERROR', message: `unknown message type: ${msg.type}` })
       }

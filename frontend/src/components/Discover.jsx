@@ -121,32 +121,46 @@ function FriendCard({ friend, rank }) {
 }
 
 function NodeBrowser() {
-  const [nodes, setNodes]   = useState([])
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('')
+  const [nodes,      setNodes]      = useState([])    // { key, handle, avatar, bio }
+  const [friends,    setFriends]    = useState([])
+  const [search,     setSearch]     = useState('')
+  const [status,     setStatus]     = useState('')
+  const [adding,     setAdding]     = useState(null)
 
   const addNode = async (address) => {
-    setStatus('Adding...')
+    setAdding(address)
+    setStatus('')
     try {
       await api.addFriend(address)
-      setStatus('Added! Syncing their profile...')
+      setStatus('Added!')
       setTimeout(() => setStatus(''), 3000)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
+    } finally {
+      setAdding(null)
     }
   }
 
-  // Pull node list from relay's INFO endpoint via WebSocket
   useEffect(() => {
+    // Load local friends (seeded accounts show here)
+    api.getFriends().then(setFriends).catch(() => {})
+
+    // Also pull live nodes from relay PEER_LIST
     const RELAY = 'wss://relay.nixdata.net:4444'
     try {
       const ws = new WebSocket(RELAY)
-      ws.onopen = () => ws.send(JSON.stringify({ type: 'SPACES_LIST' }))
+      ws.onopen = () => ws.send(JSON.stringify({ type: 'PEER_LIST' }))
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data)
-          if (msg.type === 'SPACES_LIST') {
-            setNodes(msg.spaces ?? [])
+          if (msg.type === 'PEER_LIST') {
+            setNodes(prev => {
+              const existing = new Set(prev.map(n => n.key))
+              const fresh = (msg.peers ?? [])
+                .filter(k => !existing.has(k))
+                .map(k => ({ key: k }))
+              return [...prev, ...fresh]
+            })
           }
         } catch {}
       }
@@ -155,8 +169,23 @@ function NodeBrowser() {
     } catch {}
   }, [])
 
-  const filtered = nodes.filter(n =>
-    !search || n.hostKey?.includes(search) || n.title?.toLowerCase().includes(search.toLowerCase())
+  // Merge friends into node list (friends have more profile data)
+  const combined = [
+    ...friends.map(f => ({
+      key:    f.address,
+      handle: f.handle,
+      bio:    f.bio,
+      avatar: f.avatar,
+      isFriend: true,
+    })),
+    ...nodes.filter(n => !friends.find(f => f.address === n.key)),
+  ]
+
+  const filtered = combined.filter(n =>
+    !search ||
+    n.handle?.toLowerCase().includes(search.toLowerCase()) ||
+    n.key?.includes(search) ||
+    n.bio?.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -164,30 +193,66 @@ function NodeBrowser() {
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder="Search by key or name..."
+        placeholder="Search by handle, key, or bio…"
         style={{ width: '100%', marginBottom: '0.8rem' }}
       />
       {status && <p className="status">{status}</p>}
 
+      <p style={{ color: 'var(--muted)', fontSize: '0.7rem', marginBottom: '0.75rem' }}>
+        {filtered.length} node{filtered.length !== 1 ? 's' : ''} visible
+      </p>
+
       {filtered.length === 0 ? (
-        <p className="empty">No live nodes visible right now. Try adding friends directly via their node key.</p>
+        <p className="empty">No nodes visible. Add friends via their node key.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {filtered.map(n => (
-            <div key={n.hostKey} style={{
+            <div key={n.key} style={{
               border: '1px solid var(--border)', padding: '0.75rem',
               background: 'var(--surface)', display: 'flex',
-              justifyContent: 'space-between', alignItems: 'center',
+              alignItems: 'center', gap: '0.75rem',
             }}>
-              <div>
-                <p style={{ color: 'var(--accent)', fontSize: '0.85rem' }}>{n.title}</p>
-                <code style={{ fontSize: '0.65rem', color: 'var(--muted)' }}>
-                  {n.hostKey?.slice(0, 24)}…
+              {/* Avatar */}
+              <div style={{
+                width: 40, height: 40, flexShrink: 0,
+                border: '1px solid var(--accent)', overflow: 'hidden',
+                background: 'var(--code-bg)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {n.avatar
+                  ? <img src={`${NODE_URL}${n.avatar}`} alt=""
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: '1.2rem' }}>👤</span>
+                }
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: n.handle ? 'var(--text)' : 'var(--muted)',
+                            fontWeight: n.handle ? 'bold' : 'normal', fontSize: '0.85rem' }}>
+                  {n.handle || 'Unknown Node'}
+                </p>
+                {n.bio && (
+                  <p style={{ color: 'var(--muted)', fontSize: '0.7rem',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {n.bio.slice(0, 70)}
+                  </p>
+                )}
+                <code style={{ fontSize: '0.62rem', color: 'var(--border)' }}>
+                  {n.key?.slice(0, 24)}…
                 </code>
               </div>
-              <button className="btn-small" onClick={() => addNode(n.hostKey)}>
-                + Add
-              </button>
+
+              {n.isFriend ? (
+                <span style={{ fontSize: '0.65rem', color: 'var(--accent)', border: '1px solid var(--accent)',
+                               padding: '0.2rem 0.5rem' }}>
+                  ✓ Friend
+                </span>
+              ) : (
+                <button className="btn-small" onClick={() => addNode(n.key)}
+                  disabled={adding === n.key} style={{ fontSize: '0.75rem' }}>
+                  {adding === n.key ? '…' : '+ Add'}
+                </button>
+              )}
             </div>
           ))}
         </div>
