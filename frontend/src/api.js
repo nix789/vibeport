@@ -51,6 +51,8 @@ export const api = {
   addFriend:     (key)    => req('POST',  '/friends', { coreKey: key }),
   sendSticker:   (data)   => req('POST',  '/stickers/send', data),
   getStickers:   ()       => req('GET',   '/stickers'),
-  getWebrings:   ()       => req('GET',   '/webrings'),
-  joinWebring:   (data)   => req('POST',  '/webrings', data),
+  getWebrings:      ()       => req('GET',   '/webrings'),
+  joinWebring:      (data)   => req('POST',  '/webrings', data),
+  getTop100:        ()       => req('GET',   '/discover/top'),
+  bumpInteraction:  (addr)   => req('POST',  '/discover/interact', { address: addr }),
 }

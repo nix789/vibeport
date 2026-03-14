@@ -197,6 +197,11 @@ export function startAPI() {
       VALUES ('sent', ?, ?, ?)
     `).run(peer, sticker_id, (message ?? '').slice(0, 200))
 
+    // Bump interaction score for this friend
+    db.prepare(`
+      UPDATE friends SET interaction_score = interaction_score + 2 WHERE address = ?
+    `).run(peer)
+
     await appendEvent('sticker_sent', { peer, sticker_id, message })
     res.json({ ok: true })
   })
@@ -253,6 +258,32 @@ export function startAPI() {
     if (!row) return res.status(404).json({ error: 'Not found' })
     db.prepare('DELETE FROM relays WHERE id = ?').run(req.params.id)
     disconnectRelay(row.url)
+    res.json({ ok: true })
+  })
+
+  // ── Discover ─────────────────────────────────────────────────────────────────
+
+  // Top 100 friends by interaction score
+  app.get('/api/discover/top', (req, res) => {
+    const db = getDB()
+    const top = db.prepare(`
+      SELECT f.address, f.handle, f.interaction_score, f.last_seen,
+             fp.bio, fp.avatar, fp.custom_css
+      FROM friends f
+      LEFT JOIN friend_profiles fp ON fp.address = f.address
+      ORDER BY f.interaction_score DESC, f.last_seen DESC
+      LIMIT 100
+    `).all()
+    res.json(top)
+  })
+
+  // Bump interaction score when viewing a friend's profile
+  app.post('/api/discover/interact', (req, res) => {
+    const db = getDB()
+    const { address, weight = 1 } = req.body
+    if (!address) return res.status(400).json({ error: 'address required' })
+    db.prepare(`UPDATE friends SET interaction_score = interaction_score + ? WHERE address = ?`)
+      .run(Math.min(weight, 5), address)
     res.json({ ok: true })
   })
 

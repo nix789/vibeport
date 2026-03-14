@@ -45,5 +45,10 @@ export function loadOrCreateIdentity() {
   })
 
   console.log(`[identity] New identity created: ${address}`)
-  return { publicKey, secretKey, address }
+
+  // Mark as freshly created so the node can auto-add the admin friend
+  identity._new = true
+  fs.writeFileSync(IDENTITY_FILE, JSON.stringify(identity, null, 2), { mode: 0o600 })
+
+  return { publicKey, secretKey, address, _new: true }
 }

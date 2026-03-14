@@ -66,10 +66,11 @@ function migrate(db) {
 
     -- Friends (by their public key address)
     CREATE TABLE IF NOT EXISTS friends (
-      address    TEXT    PRIMARY KEY,
-      handle     TEXT    NOT NULL DEFAULT '',
-      added_at   INTEGER NOT NULL DEFAULT (unixepoch()),
-      last_seen  INTEGER
+      address           TEXT    PRIMARY KEY,
+      handle            TEXT    NOT NULL DEFAULT '',
+      added_at          INTEGER NOT NULL DEFAULT (unixepoch()),
+      last_seen         INTEGER,
+      interaction_score INTEGER NOT NULL DEFAULT 0
     );
 
     -- Cached friend profiles synced from P2P
