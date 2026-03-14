@@ -15,8 +15,32 @@ import { sanitizeCSS, sanitizeHTML } from './sanitize.js'
 import { mediaRouter } from './media.js'
 import { connectRelay, disconnectRelay, getRelayStatus } from './relay-client.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = path.resolve(__dirname, '../../data/media')
+import multer from 'multer'
+import fs from 'fs'
+
+const __dirname   = path.dirname(fileURLToPath(import.meta.url))
+const MEDIA_DIR   = path.resolve(__dirname, '../../data/media')
+const AVATAR_DIR  = path.resolve(__dirname, '../../data/avatars')
+const AVATAR_MAX  = 5 * 1024 * 1024   // 5 MB
+
+fs.mkdirSync(AVATAR_DIR, { recursive: true })
+
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, AVATAR_DIR),
+    filename:    (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '')
+      cb(null, `avatar${ext}`)   // always overwrites — one avatar per node
+    },
+  }),
+  limits: { fileSize: AVATAR_MAX },
+  fileFilter (req, file, cb) {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Images only'))
+    }
+    cb(null, true)
+  },
+})
 const PORT = 7331 // local only
 
 export function startAPI() {
@@ -37,7 +61,8 @@ export function startAPI() {
 
   // Media upload + file serving (multer handles its own body parsing)
   app.use('/api/media', mediaRouter())
-  app.use('/media', express.static(MEDIA_DIR))
+  app.use('/media',   express.static(MEDIA_DIR))
+  app.use('/avatars', express.static(AVATAR_DIR))
 
   // ── Identity ────────────────────────────────────────────────────────────────
 
@@ -82,6 +107,21 @@ export function startAPI() {
     await appendEvent('profile_update', profile)
 
     res.json({ ok: true })
+  })
+
+  // ── Avatar upload ─────────────────────────────────────────────────────────────
+
+  app.post('/api/profile/avatar', avatarUpload.single('avatar'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file received' })
+
+    const db  = getDB()
+    const url = `/avatars/${req.file.filename}`
+    db.prepare(`UPDATE profile SET avatar = ?, updated_at = unixepoch() WHERE id = 1`).run(url)
+
+    const profile = db.prepare('SELECT * FROM profile WHERE id = 1').get()
+    await appendEvent('profile_update', profile)
+
+    res.json({ url })
   })
 
   // ── Posts ────────────────────────────────────────────────────────────────────

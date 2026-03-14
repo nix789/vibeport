@@ -11,10 +11,19 @@ async function req(method, path, body) {
   return res.json()
 }
 
+async function uploadAvatar(file) {
+  const form = new FormData()
+  form.append('avatar', file)
+  const res = await fetch(`${BASE}/profile/avatar`, { method: 'POST', body: form })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 export const api = {
   identity:      ()       => req('GET',   '/identity'),
   getProfile:    ()       => req('GET',   '/profile'),
   updateProfile: (data)   => req('PATCH', '/profile', data),
+  uploadAvatar,
   getPosts:      ()       => req('GET',   '/posts'),
   createPost:    (data)   => req('POST',  '/posts', data),
   getFriends:    ()       => req('GET',   '/friends'),

@@ -39,6 +39,7 @@ function migrate(db) {
       song_url    TEXT    NOT NULL DEFAULT '',
       custom_css  TEXT    NOT NULL DEFAULT '',
       custom_html TEXT    NOT NULL DEFAULT '',
+      avatar      TEXT    NOT NULL DEFAULT '',
       updated_at  INTEGER NOT NULL DEFAULT (unixepoch())
     );
 

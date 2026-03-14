@@ -23,15 +23,17 @@ export function ProfileView() {
 <head>
 <meta charset="utf-8">
 <style>
-  body { font-family: Arial, sans-serif; background: #000; color: #fff; padding: 1rem; }
-  h1 { color: #00ff41; }
+  body { font-family: Arial, sans-serif; background: #000; color: #fff; padding: 1rem; margin: 0; }
+  h1 { color: #00ff41; margin: 0.5rem 0 0.25rem; }
   .bio { opacity: 0.85; }
   .address { font-size: 0.7rem; opacity: 0.5; word-break: break-all; margin-top: 0.5rem; }
+  .avatar { width: 90px; height: 90px; object-fit: cover; border: 2px solid #00ff41; display: block; }
   /* User's chaos CSS */
   ${profile.custom_css}
 </style>
 </head>
 <body>
+  ${profile.avatar ? `<img class="avatar" src="http://127.0.0.1:7331${escAttr(profile.avatar)}" alt="avatar">` : ''}
   <h1>${escHtml(profile.handle || 'anon')}</h1>
   <p class="bio">${escHtml(profile.bio || '')}</p>
   ${profile.song_url || ''}

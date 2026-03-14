@@ -82,10 +82,12 @@ function sanitizeMusicEmbed(raw) {
 }
 
 export function ProfileEditor({ onSave }) {
-  const [form, setForm]       = useState({ handle: '', bio: '', song_embed: '', custom_css: '', custom_html: '' })
-  const [tab, setTab]         = useState('info')      // info | css | html | music
-  const [preview, setPreview] = useState(false)
-  const [status, setStatus]   = useState('')
+  const [form, setForm]         = useState({ handle: '', bio: '', song_embed: '', custom_css: '', custom_html: '', avatar: '' })
+  const [tab, setTab]           = useState('info')
+  const [preview, setPreview]   = useState(false)
+  const [status, setStatus]     = useState('')
+  const [avatarErr, setAvatarErr] = useState('')
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [musicPlatform, setMusicPlatform] = useState('spotify')
   const [embedRaw, setEmbedRaw]           = useState('')
   const [embedErr, setEmbedErr]           = useState('')
@@ -94,11 +96,29 @@ export function ProfileEditor({ onSave }) {
     api.getProfile().then(p => setForm({
       handle:      p.handle      ?? '',
       bio:         p.bio         ?? '',
-      song_embed:  p.song_url    ?? '',   // stored in song_url column
+      song_embed:  p.song_url    ?? '',
       custom_css:  p.custom_css  ?? '',
       custom_html: p.custom_html ?? '',
+      avatar:      p.avatar      ?? '',
     }))
   }, [])
+
+  const onAvatarChange = async (e) => {
+    setAvatarErr('')
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setAvatarErr('Images only.'); return }
+    if (file.size > 5 * 1024 * 1024)    { setAvatarErr(`Max 5 MB (yours: ${(file.size/1024/1024).toFixed(1)} MB).`); return }
+    setAvatarUploading(true)
+    try {
+      const { url } = await api.uploadAvatar(file)
+      setForm(f => ({ ...f, avatar: url }))
+    } catch (e) {
+      setAvatarErr(`Upload failed: ${e.message}`)
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
 
@@ -142,9 +162,12 @@ export function ProfileEditor({ onSave }) {
 
   const previewDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body{font-family:Arial,sans-serif;background:#000;color:#fff;padding:1rem;margin:0}
-    h1{color:#00ff41} .bio{opacity:.85} .node{font-size:.65rem;opacity:.4;margin-top:.5rem;word-break:break-all}
+    h1{color:#00ff41;margin:.5rem 0 .25rem} .bio{opacity:.85}
+    .node{font-size:.65rem;opacity:.4;margin-top:.5rem;word-break:break-all}
+    .avatar{width:80px;height:80px;object-fit:cover;border:2px solid #00ff41}
     ${form.custom_css}
   </style></head><body>
+    ${form.avatar ? `<img class="avatar" src="http://127.0.0.1:7331${form.avatar}" alt="avatar">` : ''}
     <h1>${esc(form.handle || 'your name')}</h1>
     <p class="bio">${esc(form.bio || 'your bio goes here')}</p>
     ${form.song_embed || ''}
@@ -194,6 +217,46 @@ export function ProfileEditor({ onSave }) {
           {/* Info tab */}
           {tab === 'info' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+
+              {/* Avatar upload */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <label style={{ cursor: 'pointer', margin: 0 }} title="Click to upload">
+                  <div style={{
+                    width: 80, height: 80,
+                    border: '2px solid var(--accent)',
+                    background: 'var(--code-bg)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden', flexShrink: 0, position: 'relative',
+                  }}>
+                    {form.avatar
+                      ? <img src={`http://127.0.0.1:7331${form.avatar}`} alt="avatar"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: '2rem' }}>👤</span>
+                    }
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      background: 'rgba(0,0,0,0.5)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      opacity: 0, transition: 'opacity .2s',
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={e => e.currentTarget.style.opacity = 0}
+                    >
+                      <span style={{ fontSize: '1.4rem' }}>📷</span>
+                    </div>
+                  </div>
+                  <input type="file" accept="image/*" onChange={onAvatarChange}
+                    style={{ display: 'none' }} />
+                </label>
+                <div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text)', marginBottom: '0.2rem' }}>
+                    {avatarUploading ? 'Uploading...' : 'Profile Photo'}
+                  </p>
+                  <p className="hint">GIFs welcome · max 5 MB · click photo to change</p>
+                  {avatarErr && <p className="error">{avatarErr}</p>}
+                </div>
+              </div>
+
               <label>
                 Handle
                 <input value={form.handle} onChange={set('handle')} maxLength={64} placeholder="@yourname" />
