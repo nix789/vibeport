@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { LandingPage } from './components/LandingPage'
 import { ProfileEditor } from './components/ProfileEditor'
 import { ProfileView } from './components/ProfileView'
+import { RippleBackground } from './components/RippleBackground'
 import { Feed } from './components/Feed'
 import { Friends } from './components/Friends'
 import { Stickers } from './components/Stickers'
@@ -28,7 +29,8 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app" style={{ position: 'relative', zIndex: 1 }}>
+      <RippleBackground />
       <header className="app-header">
         <h1 className="app-logo">Vibeport</h1>
         <p className="app-tagline">your port · your vibe · your people</p>

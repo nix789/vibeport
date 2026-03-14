@@ -6,14 +6,18 @@
 
 import { useState } from 'react'
 import { NodeInit } from './NodeInit'
+import { RippleBackground } from './RippleBackground'
 
 export function LandingPage({ onEnterApp }) {
   return (
-    <div className="min-h-screen bg-[#000000] text-white font-mono">
-      <Hero onEnterApp={onEnterApp} />
-      <ComparisonTable />
-      <NodeInitSection onEnterApp={onEnterApp} />
-      <LandingFooter />
+    <div className="min-h-screen bg-[#000000] text-white font-mono" style={{ position: 'relative' }}>
+      <RippleBackground />
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <Hero onEnterApp={onEnterApp} />
+        <ComparisonTable />
+        <NodeInitSection onEnterApp={onEnterApp} />
+        <LandingFooter />
+      </div>
     </div>
   )
 }

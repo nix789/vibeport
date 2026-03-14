@@ -23,8 +23,8 @@ export function ProfileView() {
 <head>
 <meta charset="utf-8">
 <style>
-  body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 1rem; }
-  h1 { color: #e94560; }
+  body { font-family: Arial, sans-serif; background: #000; color: #fff; padding: 1rem; }
+  h1 { color: #00ff41; }
   .bio { opacity: 0.85; }
   .address { font-size: 0.7rem; opacity: 0.5; word-break: break-all; margin-top: 0.5rem; }
   /* User's chaos CSS */
@@ -34,7 +34,7 @@ export function ProfileView() {
 <body>
   <h1>${escHtml(profile.handle || 'anon')}</h1>
   <p class="bio">${escHtml(profile.bio || '')}</p>
-  ${profile.song_url ? `<audio controls src="${escAttr(profile.song_url)}"></audio>` : ''}
+  ${profile.song_url || ''}
   ${profile.custom_html || ''}
   <p class="address">node: ${identity?.coreKey ?? '...'}</p>
 </body>
