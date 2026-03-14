@@ -7,6 +7,8 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
 
+const SITE_BASE = 'https://vibeport.nixdata.net'
+
 export function ProfileView() {
   const [profile, setProfile] = useState(null)
   const [identity, setIdentity] = useState(null)
@@ -52,13 +54,64 @@ export function ProfileView() {
         srcDoc={srcDoc}
         className="profile-frame"
       />
-      {identity && (
-        <p className="node-key">
-          <strong>Your node key</strong> (share this to be added as a friend):<br />
-          <code>{identity.coreKey}</code>
-        </p>
-      )}
+      {identity?.coreKey && <ShareBanner nodeKey={identity.coreKey} />}
     </section>
+  )
+}
+
+function ShareBanner({ nodeKey }) {
+  const [copied, setCopied] = useState('')
+
+  const shareUrl  = `${SITE_BASE}/${nodeKey}`
+  const shortKey  = nodeKey.slice(0, 20) + '…'
+
+  const copy = (text, label) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label)
+      setTimeout(() => setCopied(''), 2000)
+    })
+  }
+
+  return (
+    <div style={{
+      border: '1px solid #1a3a1a', background: '#050f05',
+      padding: '1rem', marginTop: '0.75rem',
+    }}>
+      <p style={{ color: '#00ff41', fontSize: '0.7rem', textTransform: 'uppercase',
+                  letterSpacing: '.15em', marginBottom: '0.6rem' }}>
+        Your Vibeport Link
+      </p>
+
+      <div style={{
+        background: '#000', border: '1px solid #0a2a0a', padding: '0.6rem',
+        fontFamily: 'monospace', fontSize: '0.72rem', color: '#00cc33',
+        wordBreak: 'break-all', marginBottom: '0.75rem',
+      }}>
+        {SITE_BASE}/<span style={{ color: '#00ff41' }}>{shortKey}</span>
+      </div>
+
+      <p style={{ color: '#555', fontSize: '0.72rem', marginBottom: '0.75rem' }}>
+        Share this link — anyone who clicks it can add you as a friend in one tap.
+      </p>
+
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <button
+          className="btn-primary"
+          style={{ fontSize: '0.75rem', padding: '0.4rem 0.9rem' }}
+          onClick={() => copy(shareUrl, 'link')}
+        >
+          {copied === 'link' ? '✓ Copied!' : '🔗 Copy Link'}
+        </button>
+        <button
+          className="btn-primary"
+          style={{ fontSize: '0.75rem', padding: '0.4rem 0.9rem',
+                   background: 'transparent', border: '1px solid #1a3a1a', color: '#00cc33' }}
+          onClick={() => copy(nodeKey, 'key')}
+        >
+          {copied === 'key' ? '✓ Copied!' : 'Copy Key Only'}
+        </button>
+      </div>
+    </div>
   )
 }
 

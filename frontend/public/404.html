@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Vibeport</title>
+</head>
+<body>
+<script>
+  /**
+   * GitHub Pages SPA fallback.
+   * Captures the path (e.g. /abc123def456...) and redirects to
+   * /?nodekey=abc123def456... so the React app can handle it.
+   */
+  const seg = window.location.pathname.replace(/^\//, '').replace(/\/$/, '')
+  if (seg) {
+    window.location.replace('/?nodekey=' + encodeURIComponent(seg))
+  } else {
+    window.location.replace('/')
+  }
+</script>
+</body>
+</html>

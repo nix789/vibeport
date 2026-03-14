@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { LandingPage } from './components/LandingPage'
 import { ProfileEditor } from './components/ProfileEditor'
 import { ProfileView } from './components/ProfileView'
@@ -11,15 +11,24 @@ import { ThemeEngine } from './components/ThemeEngine'
 import { P2PStatus } from './components/P2PStatus'
 import { Discover } from './components/Discover'
 import { Vibes } from './components/Vibes'
+import { SharePage } from './components/SharePage'
 import './App.css'
 
 const TABS = ['Profile', 'Bulletin', 'Friends', 'Stickers', 'Webrings', 'Discover', 'Vibes', 'Theme', 'Node']
-
 const LANDING_KEY = 'vibeport_entered'
+const SITE_BASE   = 'https://vibeport.nixdata.net'
 
 export default function App() {
   const [entered, setEntered] = useState(() => !!localStorage.getItem(LANDING_KEY))
   const [tab, setTab] = useState('Profile')
+
+  // If someone visited /NODEKEY, show the public share page
+  const sharedKey = useMemo(() => {
+    const k = new URLSearchParams(window.location.search).get('nodekey') ?? ''
+    return /^[0-9a-f]{64}$/i.test(k) ? k.toLowerCase() : null
+  }, [])
+
+  if (sharedKey) return <SharePage nodeKey={sharedKey} />
 
   const enter = () => {
     localStorage.setItem(LANDING_KEY, '1')
