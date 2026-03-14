@@ -19,9 +19,7 @@ const PUBKEY_BYTES = sodium.crypto_sign_PUBLICKEYBYTES
 
 // Default relays — users can add more via the API
 export const DEFAULT_RELAYS = [
-  'ws://147.182.152.76:4444',   // your DigitalOcean droplet
-  // once you have a domain + TLS cert, change to:
-  // 'wss://relay.vibeport.com:4444'
+  'wss://relay.vibeport.com:4444',
 ]
 
 const activeRelays = new Map()  // url → { ws, backoff, timer }
