@@ -8,12 +8,12 @@ import { useState } from 'react'
 import { NodeInit } from './NodeInit'
 import { RippleBackground } from './RippleBackground'
 
-export function LandingPage({ onEnterApp }) {
+export function LandingPage({ onEnterApp, onExplore }) {
   return (
     <div className="min-h-screen bg-[#000000] text-white font-mono" style={{ position: 'relative' }}>
       <RippleBackground />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <Hero onEnterApp={onEnterApp} />
+        <Hero onEnterApp={onEnterApp} onExplore={onExplore} />
         <ComparisonTable />
         <DownloadSection />
         <NodeInitSection onEnterApp={onEnterApp} />
@@ -25,7 +25,7 @@ export function LandingPage({ onEnterApp }) {
 
 /* ── Hero ────────────────────────────────────────────────────────────────── */
 
-function Hero({ onEnterApp }) {
+function Hero({ onEnterApp, onExplore }) {
   return (
     <section className="relative overflow-hidden px-6 py-24 md:py-36 text-center border-b border-[#1a3a1a]">
       {/* Background grid decoration */}
@@ -59,13 +59,19 @@ function Hero({ onEnterApp }) {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={onEnterApp}
-            className="bg-[#00ff41] hover:bg-[#00cc33] text-white px-8 py-3 text-sm uppercase tracking-widest transition-colors"
+            className="bg-[#00ff41] hover:bg-[#00cc33] text-black px-8 py-3 text-sm uppercase tracking-widest transition-colors font-bold"
           >
             Open Your Port
           </button>
+          <button
+            onClick={onExplore}
+            className="border border-[#00ff41] hover:bg-[#00ff41]/10 text-[#00ff41] px-8 py-3 text-sm uppercase tracking-widest transition-colors"
+          >
+            Explore Live Network →
+          </button>
           <a
             href="#compare"
-            className="border border-[#1a3a1a] hover:border-[#00cc33] text-gray-300 hover:text-[#00cc33] px-8 py-3 text-sm uppercase tracking-widest transition-colors"
+            className="border border-[#1a3a1a] hover:border-[#00cc33] text-gray-500 hover:text-[#00cc33] px-8 py-3 text-sm uppercase tracking-widest transition-colors"
           >
             Logic Check ↓
           </a>
@@ -227,8 +233,8 @@ function DownloadSection() {
         </h2>
         <p className="text-gray-400 mb-10 max-w-xl mx-auto">
           One click and your node starts automatically.
-          No terminal, no npm, no setup wizard.{' '}
-          <span className="text-gray-600">Requires Node.js 20+.</span>
+          No terminal. No account. No setup wizard.{' '}
+          <span className="text-gray-600">iOS &amp; Android coming soon.</span>
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

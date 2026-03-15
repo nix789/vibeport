@@ -7,7 +7,8 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
 
-const SITE_BASE = 'https://vibeport.nixdata.net'
+const SITE_BASE  = 'https://vibeport.nixdata.net'
+const RELAY_BASE = 'https://relay.nixdata.net'
 
 export function ProfileView() {
   const [profile, setProfile] = useState(null)
@@ -62,7 +63,8 @@ export function ProfileView() {
 function ShareBanner({ nodeKey }) {
   const [copied, setCopied] = useState('')
 
-  const shareUrl  = `${SITE_BASE}/${nodeKey}`
+  // relay.nixdata.net/u/KEY serves proper OG meta tags for X, Discord, iMessage etc.
+  const shareUrl  = `${RELAY_BASE}/u/${nodeKey}`
   const shortKey  = nodeKey.slice(0, 20) + '…'
 
   const copy = (text, label) => {
@@ -85,13 +87,13 @@ function ShareBanner({ nodeKey }) {
       <div style={{
         background: '#000', border: '1px solid #0a2a0a', padding: '0.6rem',
         fontFamily: 'monospace', fontSize: '0.72rem', color: '#00cc33',
-        wordBreak: 'break-all', marginBottom: '0.75rem',
+        wordBreak: 'break-all', marginBottom: '0.6rem',
       }}>
-        {SITE_BASE}/<span style={{ color: '#00ff41' }}>{shortKey}</span>
+        relay.nixdata.net/u/<span style={{ color: '#00ff41' }}>{shortKey}</span>
       </div>
 
-      <p style={{ color: '#555', fontSize: '0.72rem', marginBottom: '0.75rem' }}>
-        Share this link — anyone who clicks it can add you as a friend in one tap.
+      <p style={{ color: '#555', fontSize: '0.68rem', marginBottom: '0.75rem' }}>
+        Share on X, Discord, iMessage — shows your handle, bio &amp; recent posts as a preview card.
       </p>
 
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

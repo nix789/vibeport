@@ -13,7 +13,7 @@ import { getDB } from './store.js'
 import { appendEvent, addFriend, getLocalCoreKey } from './p2p.js'
 import { sanitizeCSS, sanitizeHTML } from './sanitize.js'
 import { mediaRouter } from './media.js'
-import { connectRelay, disconnectRelay, getRelayStatus, sendDM } from './relay-client.js'
+import { connectRelay, disconnectRelay, getRelayStatus, sendDM, publishProfile } from './relay-client.js'
 
 import multer from 'multer'
 import fs from 'fs'
@@ -105,9 +105,10 @@ export function startAPI() {
     const setClause = Object.keys(fields).map(k => `${k} = @${k}`).join(', ')
     db.prepare(`UPDATE profile SET ${setClause} WHERE id = 1`).run(fields)
 
-    // Broadcast update to peers via Hypercore
+    // Broadcast update to peers via Hypercore + relay cache
     const profile = db.prepare('SELECT * FROM profile WHERE id = 1').get()
     await appendEvent('profile_update', profile)
+    publishProfile().catch(() => {})
 
     res.json({ ok: true })
   })
@@ -123,6 +124,7 @@ export function startAPI() {
 
     const profile = db.prepare('SELECT * FROM profile WHERE id = 1').get()
     await appendEvent('profile_update', profile)
+    publishProfile().catch(() => {})
 
     res.json({ url })
   })

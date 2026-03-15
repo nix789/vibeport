@@ -146,7 +146,7 @@ function NodeBrowser() {
     api.getFriends().then(setFriends).catch(() => {})
 
     // Also pull live nodes from relay PEER_LIST
-    const RELAY = 'wss://relay.nixdata.net:4444'
+    const RELAY = 'wss://relay.nixdata.net'
     try {
       const ws = new WebSocket(RELAY)
       ws.onopen = () => ws.send(JSON.stringify({ type: 'PEER_LIST' }))

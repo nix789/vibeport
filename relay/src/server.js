@@ -23,12 +23,52 @@
  *     Forwarded signed event buffers (same format as published)
  */
 
+import http from 'http'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { WebSocketServer, WebSocket } from 'ws'
 import { storeEvent, getEvents, getHead, evictOldFeeds } from './db.js'
 import { unpackEvent, HEADER_BYTES } from './verify.js'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 // feedKey → Set<WebSocket>
 const subscriptions = new Map()
+
+// nodeKey → { handle, bio, custom_css, avatar, posts, updatedAt, expiryTimer, isSeed }
+const profileCache = new Map()
+
+// ws → nodeKey (so we know which profile to expire on disconnect)
+const wsToProfileKey = new WeakMap()
+
+// ── Pre-load seed profiles ─────────────────────────────────────────────────────
+// seeds.json lives alongside server.js in the deployed flat directory
+const SEEDS_PATH = fs.existsSync(path.join(__dirname, 'seeds.json'))
+  ? path.join(__dirname, 'seeds.json')
+  : path.join(__dirname, '../seeds.json')
+if (fs.existsSync(SEEDS_PATH)) {
+  try {
+    const seeds = JSON.parse(fs.readFileSync(SEEDS_PATH, 'utf8'))
+    for (const s of seeds) {
+      if (s.nodeKey && /^[0-9a-f]{64}$/.test(s.nodeKey)) {
+        profileCache.set(s.nodeKey.toLowerCase(), {
+          handle:     s.handle     ?? '',
+          bio:        s.bio        ?? '',
+          custom_css: s.custom_css ?? '',
+          avatar:     s.avatar     ?? null,
+          posts:      s.posts      ?? [],
+          updatedAt:  s.updatedAt  ?? Date.now(),
+          expiryTimer: null,
+          isSeed: true,   // seeds never expire
+        })
+      }
+    }
+    console.log(`[relay] Loaded ${seeds.length} seed profiles from seeds.json`)
+  } catch (e) {
+    console.warn('[relay] Could not load seeds.json:', e.message)
+  }
+}
 
 // ── Vibes / Spaces (WebRTC signaling) ────────────────────────────────────────
 // spaceId → {
@@ -78,7 +118,155 @@ function broadcastSpaceList() {
 }
 
 export function startServer(port, rateLimitPerMin = 300) {
-  const wss = new WebSocketServer({ port })
+  // ── HTTP server for profile cache endpoint ──────────────────────────────────
+  const PROFILE_TTL_MS = 24 * 60 * 60 * 1000  // 24 hours
+
+  const TAGLINES = [
+    'running their own node on the decentralized web',
+    'no algorithm, no ads, no landlord',
+    'owns their data and their identity',
+    'part of the peer-to-peer internet',
+    'on vibeport — the anti-platform',
+    'your port, your vibe, your people',
+    'escaped the cloud. running local.',
+    'decentralized and unbothered',
+    'building the internet we actually want',
+    'no follower counts. just real connections.',
+  ]
+
+  function tagline(key) {
+    const n = parseInt(key.slice(0, 8), 16)
+    return TAGLINES[n % TAGLINES.length]
+  }
+
+  function esc(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
+
+  function buildPreviewHTML(key, profile) {
+    const handle = profile?.handle || 'A Vibeport Node'
+    const bio    = profile?.bio    || tagline(key)
+    const short  = key.slice(0, 16) + '…' + key.slice(-8)
+    const appUrl = `https://vibeport.nixdata.net/?nodekey=${key}`
+    const ogImg  = 'https://vibeport.nixdata.net/logo.png'
+    const posts  = profile?.posts ?? []
+
+    const postsHTML = posts.slice(0, 3).map(p => `
+      <div style="border-left:2px solid #1a3a1a;padding:.5rem .75rem;margin:.5rem 0;color:#666;font-size:.82rem;line-height:1.5">
+        ${p.mood ? `<span style="margin-right:.4rem">${esc(p.mood)}</span>` : ''}
+        ${esc(p.content?.slice(0, 140))}
+      </div>`).join('')
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>${esc(handle)} — Vibeport</title>
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="profile"/>
+  <meta property="og:site_name"   content="Vibeport"/>
+  <meta property="og:title"       content="${esc(handle)} — Vibeport"/>
+  <meta property="og:description" content="${esc(bio)}"/>
+  <meta property="og:image"       content="${ogImg}"/>
+  <meta property="og:url"         content="https://relay.nixdata.net/u/${key}"/>
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary"/>
+  <meta name="twitter:site"        content="@vibeport"/>
+  <meta name="twitter:title"       content="${esc(handle)} — Vibeport"/>
+  <meta name="twitter:description" content="${esc(bio)}"/>
+  <meta name="twitter:image"       content="${ogImg}"/>
+
+  <!-- Redirect real users to the app -->
+  <script>
+    if (!/bot|crawler|spider|facebookexternalhit|twitterbot|discordbot|slackbot|whatsapp|telegram|linkedin|preview/i.test(navigator.userAgent)) {
+      window.location.replace(${JSON.stringify(appUrl)})
+    }
+  </script>
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#000;color:#fff;font-family:monospace;min-height:100vh;
+         display:flex;align-items:center;justify-content:center;padding:1.5rem}
+    .card{border:1px solid #1a3a1a;background:#050f05;max-width:480px;width:100%;padding:2rem}
+    .logo{color:#00ff41;font-size:2rem;font-weight:bold;letter-spacing:.15em;margin-bottom:1.5rem}
+    .handle{color:#00ff41;font-size:1.2rem;font-weight:bold;margin-bottom:.4rem}
+    .bio{color:#666;font-size:.85rem;line-height:1.5;margin-bottom:1rem}
+    .key{color:#1a3a1a;font-size:.6rem;margin-bottom:1.25rem;word-break:break-all}
+    .btn{display:block;width:100%;padding:.75rem;text-align:center;font-family:monospace;
+         font-size:.85rem;font-weight:bold;text-transform:uppercase;letter-spacing:.1em;
+         text-decoration:none;cursor:pointer;border:none;margin-bottom:.5rem}
+    .btn-primary{background:#00ff41;color:#000}
+    .btn-secondary{background:transparent;border:1px solid #1a3a1a;color:#2a5a2a}
+    .tag{color:#1a3a1a;font-size:.6rem;text-transform:uppercase;letter-spacing:.2em;margin-bottom:.75rem}
+    .posts-label{color:#1a3a1a;font-size:.6rem;text-transform:uppercase;
+                  letter-spacing:.1em;margin:.75rem 0 .25rem}
+    .footer{text-align:center;color:#1a3a1a;font-size:.6rem;margin-top:1.5rem;letter-spacing:.2em}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">V</div>
+    <div class="tag">Vibeport Node</div>
+    <div class="handle">${esc(handle)}</div>
+    ${bio ? `<div class="bio">${esc(bio)}</div>` : ''}
+    ${postsHTML ? `<div class="posts-label">Recent Vibes</div>${postsHTML}` : ''}
+    <div class="key">${esc(short)}</div>
+    <a href="${esc(appUrl)}" class="btn btn-primary">+ Add as Friend</a>
+    <a href="https://vibeport.nixdata.net" class="btn btn-secondary">What is Vibeport?</a>
+  </div>
+  <div class="footer">no ads · no algorithm · your data stays with you</div>
+</body>
+</html>`
+  }
+
+  function httpHandler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return }
+
+    // OG preview page — used as the share link for X, Discord, iMessage etc.
+    const previewMatch = req.url.match(/^\/u\/([0-9a-f]{64})$/i)
+    if (req.method === 'GET' && previewMatch) {
+      const key = previewMatch[1].toLowerCase()
+      const cached = profileCache.get(key)
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(buildPreviewHTML(key, cached))
+      return
+    }
+
+    const profileMatch = req.url.match(/^\/profile\/([0-9a-f]{64})$/i)
+    if (req.method === 'GET' && profileMatch) {
+      const key    = profileMatch[1].toLowerCase()
+      const cached = profileCache.get(key)
+      if (!cached) {
+        res.writeHead(404, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'Profile not cached' }))
+        return
+      }
+      const { expiryTimer, ...data } = cached
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(data))
+      return
+    }
+
+    if (req.method === 'GET' && req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, profiles: profileCache.size, spaces: spaces.size }))
+      return
+    }
+
+    res.writeHead(404); res.end('Not found')
+  }
+
+  const httpServer = http.createServer(httpHandler)
+  const wss = new WebSocketServer({ server: httpServer })
 
   // Per-connection event counter for rate limiting
   const counters = new WeakMap()
@@ -358,12 +546,49 @@ export function startServer(port, rateLimitPerMin = 300) {
 
         // ── Peer discovery ─────────────────────────────────────────────────
         case 'PEER_LIST': {
+          const seen  = new Set()
           const peers = []
+          // Live subscribers first (real nodes currently connected)
           for (const [key] of subscriptions) {
-            if (/^[0-9a-f]{64}$/.test(key)) peers.push(key)
-            if (peers.length >= 100) break
+            if (/^[0-9a-f]{64}$/.test(key) && !seen.has(key)) {
+              seen.add(key); peers.push(key)
+              if (peers.length >= 100) break
+            }
+          }
+          // Fill remaining slots with seed profiles (always discoverable)
+          if (peers.length < 100) {
+            for (const [key, profile] of profileCache) {
+              if (profile.isSeed && !seen.has(key)) {
+                seen.add(key); peers.push(key)
+                if (peers.length >= 100) break
+              }
+            }
           }
           send({ type: 'PEER_LIST', peers })
+          break
+        }
+
+        // ── Profile cache (for 24h offline buffer) ──────────────────────────
+        case 'PROFILE_PUBLISH': {
+          const { nodeKey, handle, bio, custom_css, avatar, posts } = msg
+          if (!nodeKey || !/^[0-9a-f]{64}$/i.test(nodeKey)) break
+
+          // Cancel any pending expiry timer
+          const existing = profileCache.get(nodeKey.toLowerCase())
+          if (existing?.expiryTimer) clearTimeout(existing.expiryTimer)
+
+          profileCache.set(nodeKey.toLowerCase(), {
+            handle:     String(handle     ?? '').slice(0, 64),
+            bio:        String(bio        ?? '').slice(0, 500),
+            custom_css: String(custom_css ?? '').slice(0, 8000),
+            avatar:     avatar ?? null,
+            posts:      Array.isArray(posts) ? posts.slice(0, 10) : [],
+            updatedAt:  Date.now(),
+            expiryTimer: null,
+          })
+
+          // Associate this ws with this key so we can expire on disconnect
+          wsToProfileKey.set(ws, nodeKey.toLowerCase())
           break
         }
 
@@ -373,6 +598,16 @@ export function startServer(port, rateLimitPerMin = 300) {
     })
 
     ws.on('close', () => {
+      // Start 24h profile expiry if this ws published a profile (seeds never expire)
+      const profileKey = wsToProfileKey.get(ws)
+      if (profileKey) {
+        const cached = profileCache.get(profileKey)
+        if (cached && !cached.isSeed) {
+          if (cached.expiryTimer) clearTimeout(cached.expiryTimer)
+          cached.expiryTimer = setTimeout(() => profileCache.delete(profileKey), PROFILE_TTL_MS)
+        }
+      }
+
       // Clean up subscriptions
       for (const [key, subs] of subscriptions) {
         subs.delete(ws)
@@ -414,8 +649,11 @@ export function startServer(port, rateLimitPerMin = 300) {
 
   wss.on('error', (err) => console.error('[relay] Server error:', err.message))
 
-  console.log(`[relay] WebSocket relay listening on ws://0.0.0.0:${port}`)
-  return wss
+  httpServer.listen(port, '0.0.0.0', () => {
+    console.log(`[relay] HTTP + WebSocket listening on port ${port}`)
+  })
+
+  return { wss, httpServer }
 }
 
 function sanitizeKey(k) {

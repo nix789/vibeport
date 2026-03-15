@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { LandingPage } from './components/LandingPage'
+import { GuestMode } from './components/GuestMode'
 import { ProfileEditor } from './components/ProfileEditor'
 import { ProfileView } from './components/ProfileView'
 import { RippleBackground } from './components/RippleBackground'
@@ -19,8 +20,12 @@ const TABS = ['Profile', 'Bulletin', 'Friends', 'Messages', 'Stickers', 'Webring
 const LANDING_KEY = 'vibeport_entered'
 const SITE_BASE   = 'https://vibeport.nixdata.net'
 
+// Mobile browsers can't run a local node — send them straight to guest mode
+const isMobileBrowser = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
 export default function App() {
-  const [entered, setEntered] = useState(() => !!localStorage.getItem(LANDING_KEY))
+  const [entered,   setEntered]   = useState(() => !!localStorage.getItem(LANDING_KEY))
+  const [guestMode, setGuestMode] = useState(isMobileBrowser)
   const [tab, setTab] = useState('Profile')
 
   // If someone visited /NODEKEY, show the public share page
@@ -31,13 +36,15 @@ export default function App() {
 
   if (sharedKey) return <SharePage nodeKey={sharedKey} />
 
+  if (guestMode) return <GuestMode onBack={() => setGuestMode(false)} />
+
   const enter = () => {
     localStorage.setItem(LANDING_KEY, '1')
     setEntered(true)
   }
 
   if (!entered) {
-    return <LandingPage onEnterApp={enter} />
+    return <LandingPage onEnterApp={enter} onExplore={() => setGuestMode(true)} />
   }
 
   return (

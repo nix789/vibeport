@@ -20,7 +20,7 @@ const PUBKEY_BYTES = sodium.crypto_sign_PUBLICKEYBYTES
 
 // Default relays — users can add more via the API
 export const DEFAULT_RELAYS = [
-  'wss://relay.nixdata.net:4444',
+  'wss://relay.nixdata.net',
 ]
 
 const activeRelays = new Map()  // url → { ws, backoff, timer }
@@ -95,6 +95,32 @@ export async function sendDM(toPubkeyHex, plaintext) {
   if (!sent) throw new Error('No relay connection available')
 }
 
+/** Publish local profile to all connected relays (for offline share buffer) */
+export async function publishProfile() {
+  if (!_identity) return
+  const db = getDB()
+  const profile = db.prepare('SELECT * FROM profile WHERE id = 1').get()
+  if (!profile) return
+
+  const posts = db.prepare(
+    'SELECT content, mood, created_at FROM posts ORDER BY created_at DESC LIMIT 5'
+  ).all()
+
+  const msg = JSON.stringify({
+    type:       'PROFILE_PUBLISH',
+    nodeKey:    _identity.publicKey,
+    handle:     profile.handle ?? '',
+    bio:        profile.bio    ?? '',
+    custom_css: profile.custom_css ?? '',
+    avatar:     profile.avatar ?? null,
+    posts,
+  })
+
+  for (const [, entry] of activeRelays) {
+    if (entry.ws?.readyState === WebSocket.OPEN) entry.ws.send(msg)
+  }
+}
+
 /** Subscribe to a friend's feed on all relays, from a given seq */
 export function subscribeOnRelays(feedKey, fromSeq = 0) {
   for (const [, entry] of activeRelays) {
@@ -133,6 +159,9 @@ function _connect(url) {
         ws.send(JSON.stringify({ type: 'SUBSCRIBE', feedKey: address, fromSeq: 0 }))
       }
     }
+
+    // Publish profile to relay cache (clears any pending expiry timer on relay)
+    publishProfile().catch(() => {})
   })
 
   ws.on('message', (data, isBinary) => {

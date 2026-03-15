@@ -11,12 +11,14 @@ import { useState, useEffect } from 'react'
 import { RippleBackground } from './RippleBackground'
 
 const NODE_URL    = 'http://127.0.0.1:7331'
+const RELAY_URL   = 'https://relay.nixdata.net'
 const SITE_BASE   = 'https://vibeport.nixdata.net'
 const RELEASES    = 'https://github.com/nix789/vibeport/releases/latest'
 
 export function SharePage({ nodeKey }) {
   const [nodeOnline, setNodeOnline] = useState(false)
-  const [status,     setStatus]     = useState('')   // '', 'adding', 'done', 'error'
+  const [cached,     setCached]     = useState(null)   // relay profile cache
+  const [status,     setStatus]     = useState('')     // '', 'adding', 'done', 'error'
   const [copied,     setCopied]     = useState(false)
 
   // Check if visitor's own Vibeport node is running
@@ -25,6 +27,14 @@ export function SharePage({ nodeKey }) {
       .then(r => r.ok ? setNodeOnline(true) : null)
       .catch(() => {})
   }, [])
+
+  // Fetch cached profile from relay (available even when target node is offline)
+  useEffect(() => {
+    fetch(`${RELAY_URL}/profile/${nodeKey}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data && !data.error) setCached(data) })
+      .catch(() => {})
+  }, [nodeKey])
 
   const addFriend = async () => {
     setStatus('adding')
@@ -86,10 +96,67 @@ export function SharePage({ nodeKey }) {
             Vibeport Node
           </p>
 
-          <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-            Someone shared their Vibeport node with you.
-            Add them as a friend to sync profiles and exchange stickers.
-          </p>
+          {/* Profile preview — cached from relay if node was recently online */}
+          {cached ? (
+            <div style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem',
+                            marginBottom: '0.75rem' }}>
+                <div style={{ width: 48, height: 48, border: '1px solid #00ff41',
+                              overflow: 'hidden', flexShrink: 0, background: '#000',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '1.5rem' }}>👤</span>
+                </div>
+                <div>
+                  <p style={{ color: '#00ff41', fontWeight: 'bold', fontSize: '1rem', margin: 0 }}>
+                    {cached.handle || 'Unknown Node'}
+                  </p>
+                  {cached.bio && (
+                    <p style={{ color: '#888', fontSize: '0.78rem', margin: '0.2rem 0 0' }}>
+                      {cached.bio}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {cached.posts?.length > 0 && (
+                <div style={{ borderTop: '1px solid #1a3a1a', paddingTop: '0.75rem' }}>
+                  <p style={{ color: '#444', fontSize: '0.6rem', textTransform: 'uppercase',
+                               letterSpacing: '.1em', marginBottom: '0.5rem' }}>
+                    Recent vibes
+                  </p>
+                  {cached.posts.slice(0, 3).map((p, i) => (
+                    <p key={i} style={{ color: '#666', fontSize: '0.78rem',
+                                        borderLeft: '2px solid #1a3a1a', paddingLeft: '0.6rem',
+                                        marginBottom: '0.4rem' }}>
+                      {p.mood && <span style={{ marginRight: '0.4rem' }}>{p.mood}</span>}
+                      {p.content?.slice(0, 120)}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p style={{ color: '#888', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+                Someone shared their Vibeport node with you.
+                Add them as a friend to sync profiles and exchange stickers.
+              </p>
+              {/* Always offer the relay profile page — works even when node is offline */}
+              <a
+                href={`${RELAY_URL}/u/${nodeKey}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'block', padding: '0.55rem 0.75rem',
+                  border: '1px solid #1a3a1a', color: '#2a5a2a',
+                  fontSize: '0.72rem', textDecoration: 'none',
+                  letterSpacing: '0.1em', textAlign: 'center',
+                }}
+              >
+                View Profile Page ↗
+              </a>
+            </div>
+          )}
 
           {/* Key display */}
           <div style={{ background: '#000', border: '1px solid #1a3a1a',

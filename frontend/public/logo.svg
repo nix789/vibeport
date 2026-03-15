@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="1200" height="1200">
+  <defs>
+    <pattern id="scanlines" x="0" y="0" width="1" height="4" patternUnits="userSpaceOnUse">
+      <rect width="1" height="1" fill="rgba(0,255,0,0.015)"/>
+    </pattern>
+  </defs>
+
+  <!-- Black background -->
+  <rect width="1200" height="1200" fill="#000"/>
+  <rect width="1200" height="1200" fill="url(#scanlines)"/>
+
+  <!-- Red V — most offset (bottom layer) -->
+  <path d="M110 80 L600 970 L1090 80" fill="none" stroke="#ff0000" stroke-width="90"
+        stroke-linecap="round" stroke-linejoin="round"
+        transform="translate(70, 40)"/>
+
+  <!-- Blue V — mid offset -->
+  <path d="M110 80 L600 970 L1090 80" fill="none" stroke="#0000ff" stroke-width="90"
+        stroke-linecap="round" stroke-linejoin="round"
+        transform="translate(36, 20)"/>
+
+  <!-- Green V — top layer -->
+  <path d="M110 80 L600 970 L1090 80" fill="none" stroke="#00ff00" stroke-width="90"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Wordmark -->
+  <text x="600" y="1100"
+        font-family="monospace, 'Courier New', Courier"
+        font-size="88" font-weight="bold" letter-spacing="28"
+        text-anchor="middle" fill="#00ff00">
+    VIBEPORT
+  </text>
+  <text x="600" y="1160"
+        font-family="monospace, 'Courier New', Courier"
+        font-size="26" letter-spacing="8"
+        text-anchor="middle" fill="#004400">
+    your port · your vibe · your people
+  </text>
+
+  <!-- Corner brackets -->
+  <line x1="30" y1="30" x2="80" y2="30" stroke="#003300" stroke-width="2"/>
+  <line x1="30" y1="30" x2="30" y2="80" stroke="#003300" stroke-width="2"/>
+  <line x1="1170" y1="30" x2="1120" y2="30" stroke="#003300" stroke-width="2"/>
+  <line x1="1170" y1="30" x2="1170" y2="80" stroke="#003300" stroke-width="2"/>
+  <line x1="30" y1="1170" x2="80" y2="1170" stroke="#003300" stroke-width="2"/>
+  <line x1="30" y1="1170" x2="30" y2="1120" stroke="#003300" stroke-width="2"/>
+  <line x1="1170" y1="1170" x2="1120" y2="1170" stroke="#003300" stroke-width="2"/>
+  <line x1="1170" y1="1170" x2="1170" y2="1120" stroke="#003300" stroke-width="2"/>
+</svg>

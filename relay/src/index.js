@@ -17,11 +17,12 @@ console.log('=== Vibeport Relay Starting ===')
 openDB()
 console.log('[db] SQLite ready')
 
-const wss = startServer(PORT, RATE_LIMIT)
+const { wss, httpServer } = startServer(PORT, RATE_LIMIT)
 console.log(`[relay] Address: ws://0.0.0.0:${PORT}`)
 console.log(`[relay] Clients connect via: wss://<your-domain>:${PORT}`)
+console.log(`[relay] Profile cache: GET https://<your-domain>:${PORT}/profile/:key`)
 
 process.on('SIGINT', () => {
   console.log('\n[relay] Shutting down...')
-  wss.close(() => process.exit(0))
+  wss.close(() => httpServer.close(() => process.exit(0)))
 })

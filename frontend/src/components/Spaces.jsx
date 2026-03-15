@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { NODE_URL } from '../api'
 
-const RELAY_URL = 'wss://relay.nixdata.net:4444'
+const RELAY_URL = 'wss://relay.nixdata.net'
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
