@@ -43,50 +43,39 @@ export function GuestMode({ onBack }) {
   const wsRef      = useRef(null)
   const guestKeyRef = useRef(randomGuestKey())
 
-  const scan = useCallback(() => {
+  const scan = useCallback(async () => {
     setLoading(true)
+
+    // ── 1. Fetch all profiles in one HTTP request (no 60-fetch waterfall) ──────
+    try {
+      const res = await fetchWithTimeout(`${RELAY_HTTP}/peers`)
+      if (res.ok) {
+        const list = await res.json()
+        setNodes(Array.isArray(list) ? list : [])
+      }
+    } catch {}
+    setLoading(false)
+
+    // ── 2. WebSocket for live Spaces only ──────────────────────────────────────
     wsRef.current?.close()
     try {
       const ws = new WebSocket(RELAY_WS)
       wsRef.current = ws
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'PEER_LIST' }))
         ws.send(JSON.stringify({ type: 'SPACES_LIST' }))
       }
 
-      ws.onmessage = async (e) => {
+      ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data)
-
-          if (msg.type === 'PEER_LIST') {
-            const keys = msg.peers ?? []
-            // Fetch profiles in parallel — Safari-safe (no AbortSignal.timeout)
-            const results = await Promise.allSettled(
-              keys.slice(0, 60).map(key =>
-                fetchWithTimeout(`${RELAY_HTTP}/profile/${key}`)
-                  .then(r => r.ok ? r.json() : null)
-                  .then(p => (p && !p.error) ? { key, ...p } : null)
-                  .catch(() => null)
-              )
-            )
-            const active = results
-              .filter(r => r.status === 'fulfilled' && r.value)
-              .map(r => r.value)
-              .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
-            setNodes(active)
-            setLoading(false)
-          }
-
-          if (msg.type === 'SPACES_LIST') {
-            setVibes(msg.spaces ?? [])
-          }
+          if (msg.type === 'SPACES_LIST') setVibes(msg.spaces ?? [])
         } catch {}
       }
 
-      ws.onerror  = () => setLoading(false)
-      ws.onclose  = () => {}
-    } catch { setLoading(false) }
+      ws.onerror = () => {}
+      ws.onclose = () => {}
+    } catch {}
   }, [])
 
   useEffect(() => {

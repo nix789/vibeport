@@ -249,6 +249,27 @@ export function startServer(port, rateLimitPerMin = 300) {
       return
     }
 
+    // All cached profiles in one shot — used by GuestMode instead of 60 individual fetches
+    if (req.method === 'GET' && req.url === '/peers') {
+      const list = []
+      for (const [key, p] of profileCache) {
+        list.push({
+          key,
+          handle:    p.handle    || '',
+          bio:       p.bio       || '',
+          posts:     p.posts     || [],
+          updatedAt: p.updatedAt || 0,
+          isSeed:    !!p.isSeed,
+        })
+        if (list.length >= 100) break
+      }
+      // Live (non-seed) profiles first, then seeds
+      list.sort((a, b) => (a.isSeed ? 1 : 0) - (b.isSeed ? 1 : 0) || b.updatedAt - a.updatedAt)
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(list))
+      return
+    }
+
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: true, profiles: profileCache.size, spaces: spaces.size }))
