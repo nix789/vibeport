@@ -71,6 +71,14 @@ export function Vibes() {
           socket.send(JSON.stringify({ type: 'SUBSCRIBE', feedKey: 'spaces' }))
           setWS(socket)
           wsRef.current = socket
+          // Re-announce space if we were hosting when WS dropped
+          if (roleRef.current === 'host' && activeRef.current && myKeyRef.current) {
+            socket.send(JSON.stringify({
+              type: 'SPACE_CREATE',
+              hostKey: myKeyRef.current,
+              title: activeRef.current.title ?? 'Vibeport Vibe',
+            }))
+          }
         }
         socket.onmessage = e => handleMsg(JSON.parse(e.data))
         socket.onclose   = () => {
