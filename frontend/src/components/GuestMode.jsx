@@ -8,7 +8,7 @@
  * the StartNodeModal with platform-appropriate download/waitlist.
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { RippleBackground } from './RippleBackground'
 
 const RELAY_WS   = 'wss://relay.nixdata.net'
@@ -16,18 +16,34 @@ const RELAY_HTTP = 'https://relay.nixdata.net'
 const SITE_BASE  = 'https://vibeport.nixdata.net'
 const RELEASES   = 'https://github.com/nix789/vibeport/releases/latest'
 
+// iOS-safe fetch with manual timeout (AbortSignal.timeout not in Safari < 16)
+function fetchWithTimeout(url, ms = 6000) {
+  const controller = new AbortController()
+  const t = setTimeout(() => controller.abort(), ms)
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(t))
+}
+
+// Generate a random hex guest key for WebRTC signaling identity
+function randomGuestKey() {
+  const arr = new Uint8Array(32)
+  crypto.getRandomValues(arr)
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function GuestMode({ onBack }) {
-  const [tab,       setTab]       = useState('nodes')
-  const [nodes,     setNodes]     = useState([])
-  const [vibes,     setVibes]     = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [showStart, setShowStart] = useState(false)
-  const [search,    setSearch]    = useState('')
-  const wsRef = useRef(null)
+  const [tab,        setTab]        = useState('nodes')
+  const [nodes,      setNodes]      = useState([])
+  const [vibes,      setVibes]      = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [showStart,  setShowStart]  = useState(false)
+  const [search,     setSearch]     = useState('')
+  const [listeningTo, setListeningTo] = useState(null) // vibe id currently listening to
+  const wsRef      = useRef(null)
+  const guestKeyRef = useRef(randomGuestKey())
 
-  const scan = () => {
+  const scan = useCallback(() => {
     setLoading(true)
     wsRef.current?.close()
     try {
@@ -45,10 +61,10 @@ export function GuestMode({ onBack }) {
 
           if (msg.type === 'PEER_LIST') {
             const keys = msg.peers ?? []
-            // Fetch profiles in parallel — only show nodes with cached profiles
+            // Fetch profiles in parallel — Safari-safe (no AbortSignal.timeout)
             const results = await Promise.allSettled(
               keys.slice(0, 60).map(key =>
-                fetch(`${RELAY_HTTP}/profile/${key}`, { signal: AbortSignal.timeout(5000) })
+                fetchWithTimeout(`${RELAY_HTTP}/profile/${key}`)
                   .then(r => r.ok ? r.json() : null)
                   .then(p => (p && !p.error) ? { key, ...p } : null)
                   .catch(() => null)
@@ -71,7 +87,7 @@ export function GuestMode({ onBack }) {
       ws.onerror  = () => setLoading(false)
       ws.onclose  = () => {}
     } catch { setLoading(false) }
-  }
+  }, [])
 
   useEffect(() => {
     scan()
@@ -215,7 +231,16 @@ export function GuestMode({ onBack }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {vibes.map(v => (
-                <VibeCard key={v.id} vibe={v} onAction={() => setShowStart(true)} />
+                <VibeCard
+                  key={v.id}
+                  vibe={v}
+                  wsRef={wsRef}
+                  guestKey={guestKeyRef.current}
+                  isListening={listeningTo === v.id}
+                  onListen={(id) => setListeningTo(id)}
+                  onLeave={() => setListeningTo(null)}
+                  onNeedNode={() => setShowStart(true)}
+                />
               ))}
             </div>
           )
@@ -319,14 +344,118 @@ function NodeCard({ node, onAction }) {
   )
 }
 
-// ── Vibe card ─────────────────────────────────────────────────────────────────
+// ── Vibe card — with WebRTC guest listening ───────────────────────────────────
 
-function VibeCard({ vibe, onAction }) {
+function VibeCard({ vibe, wsRef, guestKey, isListening, onListen, onLeave, onNeedNode }) {
+  const pcRef      = useRef(null)  // RTCPeerConnection
+  const audioRef   = useRef(null)  // <audio> element
+  const [status, setStatus] = useState('') // '', 'connecting', 'live', 'error'
+
+  // Listen to SPACE_OFFER / SPACE_ANSWER / SPACE_ICE from the relay WS
+  useEffect(() => {
+    if (!isListening) return
+
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      setStatus('error'); onLeave(); return
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    })
+    pcRef.current = pc
+
+    // When host sends audio tracks — pipe to <audio>
+    pc.ontrack = (ev) => {
+      if (audioRef.current) {
+        audioRef.current.srcObject = ev.streams[0] ?? new MediaStream([ev.track])
+        audioRef.current.play().catch(() => {})
+        setStatus('live')
+      }
+    }
+
+    pc.onicecandidate = (ev) => {
+      if (ev.candidate && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SPACE_ICE', id: vibe.id,
+          to: vibe.hostKey, from: guestKey,
+          candidate: ev.candidate,
+        }))
+      }
+    }
+
+    // Handle relay messages relevant to this guest session
+    const onMsg = async (e) => {
+      let msg
+      try { msg = JSON.parse(e.data) } catch { return }
+
+      if (msg.type === 'SPACE_OFFER' && msg.id === vibe.id && msg.to === guestKey) {
+        await pc.setRemoteDescription({ type: 'offer', sdp: msg.sdp })
+        const answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        ws.send(JSON.stringify({
+          type: 'SPACE_ANSWER', id: vibe.id,
+          to: msg.from, from: guestKey, sdp: answer.sdp,
+        }))
+      }
+
+      if (msg.type === 'SPACE_ICE' && msg.id === vibe.id && msg.to === guestKey) {
+        try { await pc.addIceCandidate(msg.candidate) } catch {}
+      }
+
+      if (msg.type === 'SPACE_ENDED' && msg.id === vibe.id) {
+        hangUp()
+      }
+    }
+
+    ws.addEventListener('message', onMsg)
+
+    // Join the space
+    setStatus('connecting')
+    ws.send(JSON.stringify({ type: 'SPACE_JOIN', id: vibe.id, peerKey: guestKey }))
+
+    return () => {
+      ws.removeEventListener('message', onMsg)
+      pc.close()
+      pcRef.current = null
+    }
+  }, [isListening]) // eslint-disable-line
+
+  const hangUp = () => {
+    pcRef.current?.close()
+    pcRef.current = null
+    if (audioRef.current) { audioRef.current.srcObject = null }
+    setStatus('')
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'SPACE_LEAVE', id: vibe.id, peerKey: guestKey }))
+    }
+    onLeave()
+  }
+
+  const handleListen = () => {
+    if (isListening) { hangUp(); return }
+    // Make sure the relay WS is open
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      onNeedNode(); return
+    }
+    onListen(vibe.id)
+  }
+
+  const statusLabel = status === 'connecting' ? 'connecting…'
+    : status === 'live'       ? '◉ live'
+    : status === 'error'      ? 'failed'
+    : isListening             ? 'joining…'
+    : ''
+
   return (
     <div style={{
-      border: '1px solid #1a3a1a', background: '#050905',
+      border: `1px solid ${isListening ? '#00ff41' : '#1a3a1a'}`,
+      background: '#050905',
       padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem',
     }}>
+      {/* Hidden audio element */}
+      <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />
+
       {/* Live indicator */}
       <div style={{ flexShrink: 0, textAlign: 'center' }}>
         <div style={{
@@ -343,17 +472,24 @@ function VibeCard({ vibe, onAction }) {
           {vibe.title || 'Untitled Vibe'}
         </p>
         <p style={{ color: '#333', fontSize: '0.7rem', marginTop: '0.2rem' }}>
-          {vibe.listeners ?? 0} listener{vibe.listeners !== 1 ? 's' : ''} · host: {vibe.hostKey?.slice(0, 16)}…
+          {vibe.listeners ?? 0} listener{vibe.listeners !== 1 ? 's' : ''} · {vibe.hostKey?.slice(0, 12)}…
         </p>
+        {statusLabel && (
+          <p style={{ color: status === 'live' ? '#00ff41' : status === 'error' ? '#ff4040' : '#2a5a2a',
+                       fontSize: '0.65rem', marginTop: '0.25rem' }}>
+            {statusLabel}
+          </p>
+        )}
       </div>
 
-      <button onClick={onAction} style={{
-        background: 'rgba(0,255,65,0.08)', border: '1px solid #00ff41',
-        color: '#00ff41', padding: '0.5rem 1rem',
-        fontFamily: 'monospace', fontSize: '0.72rem',
+      <button onClick={handleListen} style={{
+        background: isListening ? 'rgba(255,64,64,0.1)' : 'rgba(0,255,65,0.08)',
+        border: `1px solid ${isListening ? '#ff4040' : '#00ff41'}`,
+        color: isListening ? '#ff4040' : '#00ff41',
+        padding: '0.5rem 1rem', fontFamily: 'monospace', fontSize: '0.72rem',
         cursor: 'pointer', letterSpacing: '0.1em', whiteSpace: 'nowrap',
       }}>
-        Listen In →
+        {isListening ? '■ Leave' : 'Listen In →'}
       </button>
     </div>
   )
