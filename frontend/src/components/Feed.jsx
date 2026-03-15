@@ -10,7 +10,34 @@ import { api } from '../api'
 
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024   // 10 MB
 const VIDEO_MAX_BYTES = 75 * 1024 * 1024   // 75 MB (before upload; server compresses)
-const BASE = 'http://127.0.0.1:7331'
+const BASE       = 'http://127.0.0.1:7331'
+const RELAY_HTTP = 'https://relay.nixdata.net'
+
+// Fetch seed/peer posts from relay and flatten into post objects
+async function fetchPeerPosts() {
+  try {
+    const res = await fetch(`${RELAY_HTTP}/peers`)
+    if (!res.ok) return []
+    const peers = await res.json()
+    const out = []
+    for (const peer of peers) {
+      for (const p of peer.posts ?? []) {
+        out.push({
+          _peerKey: peer.key,
+          _handle:  peer.handle || 'anon',
+          _isSelf:  false,
+          content:  p.content ?? '',
+          mood:     p.mood    ?? '',
+          created_at: typeof p.created_at === 'number' ? p.created_at : Math.floor((peer.updatedAt ?? 0) / 1000),
+          media: null,
+        })
+      }
+    }
+    return out
+  } catch {
+    return []
+  }
+}
 
 export function Feed() {
   const [posts,   setPosts]   = useState([])
@@ -23,7 +50,20 @@ export function Feed() {
   const [status,  setStatus]  = useState('')
   const fileRef = useRef()
 
-  const load = () => api.getPosts().then(setPosts).catch(console.error)
+  const load = async () => {
+    const [mine, peerPosts] = await Promise.allSettled([
+      api.getPosts(),
+      fetchPeerPosts(),
+    ])
+    const myPosts = (mine.status === 'fulfilled' ? mine.value : []).map(p => ({
+      ...p, _isSelf: true, _handle: null, _peerKey: null,
+    }))
+    const peer = peerPosts.status === 'fulfilled' ? peerPosts.value : []
+    // Merge, dedupe by content+handle, sort newest first
+    const all = [...myPosts, ...peer].sort((a, b) => b.created_at - a.created_at)
+    setPosts(all)
+  }
+
   useEffect(() => {
     load()
     api.getProfile().then(setProfile).catch(() => {})
@@ -128,23 +168,25 @@ export function Feed() {
 
       <div className="posts-list">
         {posts.length === 0 && <p className="empty">No posts yet.</p>}
-        {posts.map(p => <PostCard key={p.id} post={p} profile={profile} />)}
+        {posts.map((p, i) => <PostCard key={p.id ?? `peer-${i}`} post={p} profile={profile} />)}
       </div>
     </section>
   )
 }
 
 function PostCard({ post, profile }) {
-  const expiresAt = post.media_expires_at
+  const expiresAt  = post.media_expires_at
     ? new Date(post.media_expires_at * 1000).toLocaleString()
     : null
-
-  const avatarUrl = profile?.avatar ? `${BASE}${profile.avatar}` : null
+  const isSelf     = post._isSelf !== false  // local posts have no _isSelf field initially
+  const handle     = isSelf ? (profile?.handle || 'anon') : (post._handle || 'anon')
+  const avatarUrl  = isSelf && profile?.avatar ? `${BASE}${profile.avatar}` : null
+  const peerKey    = post._peerKey
+  const profileUrl = peerKey ? `https://relay.nixdata.net/u/${peerKey}` : null
 
   return (
     <article className="post-card">
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', marginBottom: '0.5rem' }}>
-        {/* Avatar icon */}
         <div style={{
           width: 36, height: 36, flexShrink: 0,
           border: '1px solid var(--accent)',
@@ -159,8 +201,13 @@ function PostCard({ post, profile }) {
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.2rem' }}>
-            {profile?.handle || 'anon'}
-            {post.mood && <span style={{ color: 'var(--muted)', fontWeight: 'normal', marginLeft: '0.5rem' }}>· feeling: {post.mood}</span>}
+            {profileUrl
+              ? <a href={profileUrl} target="_blank" rel="noreferrer"
+                   style={{ color: 'inherit', textDecoration: 'none' }}>{handle}</a>
+              : handle
+            }
+            {!isSelf && <span style={{ color: 'var(--muted)', fontWeight: 'normal', marginLeft: '0.5rem', fontSize: '0.65rem' }}>· vibeport node</span>}
+            {post.mood && <span style={{ color: 'var(--muted)', fontWeight: 'normal', marginLeft: '0.5rem' }}>· {post.mood}</span>}
           </p>
           <p className="post-content" style={{ margin: 0 }}>{post.content}</p>
         </div>
