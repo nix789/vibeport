@@ -181,13 +181,6 @@ export function startServer(port, rateLimitPerMin = 300) {
   <meta name="twitter:description" content="${esc(bio)}"/>
   <meta name="twitter:image"       content="${ogImg}"/>
 
-  <!-- Redirect real users to the app -->
-  <script>
-    if (!/bot|crawler|spider|facebookexternalhit|twitterbot|discordbot|slackbot|whatsapp|telegram|linkedin|preview/i.test(navigator.userAgent)) {
-      window.location.replace(${JSON.stringify(appUrl)})
-    }
-  </script>
-
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{background:#000;color:#fff;font-family:monospace;min-height:100vh;
