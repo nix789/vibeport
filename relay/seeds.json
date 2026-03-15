@@ -1,5 +1,31 @@
 [
   {
+    "nodeKey": "482ecaf8dcdcc1be7d101a78415cf825e0414c599c35dfb1d1ee2d209d9b4cff",
+    "handle": "FurryMegamix",
+    "bio": "NFT collection living on the decentralized web. 265 original characters. No platform. No algorithm.",
+    "custom_css": "body{background:#1a0020;color:#ff69b4;font-family:monospace}h1{color:#ff1493;text-shadow:0 0 10px #ff69b4}",
+    "avatar": null,
+    "posts": [
+      {
+        "content": "running my own node on the decentralized internet. no landlord, no algorithm, just vibes.",
+        "mood": "🌸",
+        "created_at": 1773542454
+      },
+      {
+        "content": "vibeport is what the internet was supposed to be. your data. your identity. your people.",
+        "mood": "💜",
+        "created_at": 1773538854
+      },
+      {
+        "content": "all 265 characters from the collection now have their own node on vibeport.",
+        "mood": "🦊",
+        "created_at": 1773531654
+      }
+    ],
+    "updatedAt": 1773546054470,
+    "isSeed": true
+  },
+  {
     "nodeKey": "0eab31d28b13633d07cde012b06ac47d2f765ced857dd97ee3f9a534da2a54b0",
     "handle": "NeonFox",
     "bio": "just a neon fox vibing in the decentralized wild 🌐 | no algorithm | no landlords",
